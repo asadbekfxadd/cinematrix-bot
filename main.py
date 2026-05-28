@@ -24,11 +24,12 @@ CHANNELS = [
     {"name": "Бободжонов", "username": "@thebobodjonov", "url": "https://t.me/thebobodjonov"},
 ]
 
-# ===== МЕНЮ ВНИЗУ =====
 main_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🔥 Топ фильмов"), KeyboardButton(text="🆕 Новинки"), KeyboardButton(text="🎬 Скоро в кино")]
-    ],
+    keyboard=[[
+        KeyboardButton(text="🔥 Топ фильмов"),
+        KeyboardButton(text="🆕 Новинки"),
+        KeyboardButton(text="🎬 Скоро в кино")
+    ]],
     resize_keyboard=True,
     persistent=True
 )
@@ -109,6 +110,71 @@ async def search_movies_by_title(title):
             data = await r.json()
     return data.get("results", [])[:5]
 
+def movie_card_text(m, index, total):
+    title = m.get("title", "—")
+    year = m.get("release_date", "")[:4]
+    rating = round(m.get("vote_average", 0), 1)
+    overview = m.get("overview", "Описание отсутствует")[:200]
+    movie_id = m.get("id")
+    return (
+        f"🎬 *{title}* ({year})\n"
+        f"⭐ Рейтинг: {rating}/10\n"
+        f"🆔 Код: `{movie_id}`\n\n"
+        f"📝 {overview}...\n\n"
+        f"_{index}/{total}_"
+    )
+
+def movie_card_keyboard(movies, index, source="search"):
+    m = movies[index]
+    movie_id = m.get("id")
+    total = len(movies)
+    q = urllib.parse.quote(m.get("title", ""))
+
+    nav = []
+    if index > 0:
+        nav.append(InlineKeyboardButton(text="◀️ Назад", callback_data=f"card:{source}:{index-1}"))
+    nav.append(InlineKeyboardButton(text=f"{index+1}/{total}", callback_data="noop"))
+    if index < total - 1:
+        nav.append(InlineKeyboardButton(text="Вперёд ▶️", callback_data=f"card:{source}:{index+1}"))
+
+    return InlineKeyboardMarkup(inline_keyboard=[
+        nav,
+        [
+            InlineKeyboardButton(text="✅ Открыть этот фильм", callback_data=f"film:{movie_id}")
+        ],
+        [
+            InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={q}"),
+            InlineKeyboardButton(text="📺 Kinogo", url=f"https://kinogo.is/?do=search&subaction=search&story={q}")
+        ]
+    ])
+
+# Кэш результатов поиска для навигации
+search_cache = {}
+
+async def send_movie_card(message, movies, index, source="search", edit=False):
+    m = movies[index]
+    poster = m.get("poster_path", "")
+    text = movie_card_text(m, index + 1, len(movies))
+    kb = movie_card_keyboard(movies, index, source)
+
+    if poster:
+        photo_url = f"https://image.tmdb.org/t/p/w500{poster}"
+        if edit:
+            try:
+                await message.edit_media(
+                    types.InputMediaPhoto(media=photo_url, caption=text, parse_mode="Markdown"),
+                    reply_markup=kb
+                )
+            except:
+                await message.answer_photo(photo_url, caption=text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await message.answer_photo(photo_url, caption=text, parse_mode="Markdown", reply_markup=kb)
+    else:
+        if edit:
+            await message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await message.answer(text, parse_mode="Markdown", reply_markup=kb)
+
 @dp.message(Command("start"))
 async def start(message: types.Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
@@ -121,10 +187,9 @@ async def start(message: types.Message):
         "📌 Как пользоваться:\n"
         "🔢 *ID фильма* — например: `572802`\n"
         "🔤 *Название* — например: `Интерстеллар`\n"
-        "🎭 *Имя актёра* — например: `Tom Hanks`\n"
+        "🎭 *Актёр* — например: `Tom Hanks`\n"
         "🤖 *Опиши сцену* — например: `фильм где человек застрял на острове`\n"
-        "📊 /stats — статистика\n"
-        "👑 /admin — админ панель\n\n"
+        "📊 /stats — статистика\n\n"
         "Используй кнопки внизу 👇",
         reply_markup=main_menu, parse_mode="Markdown"
     )
@@ -148,7 +213,7 @@ async def admin_cmd(message: types.Message):
     await message.answer(
         f"👑 *Админ панель*\n\n"
         f"👥 Пользователей: *{total}*\n🔥 Сегодня: *{today_active}*\n🔍 Запросов: *{total_requests}*\n\n"
-        f"📤 Постинг в канал:\n`/post ID` — например: `/post 872585`",
+        f"📤 Постинг: `/post 872585`",
         parse_mode="Markdown"
     )
 
@@ -177,14 +242,13 @@ async def post_cmd(message: types.Message):
     poster = m.get("poster_path", "")
     q = urllib.parse.quote(title)
     await post_to_channel(movie_id, title, year, rating, overview, poster, q)
-    await message.answer(f"✅ Фильм *{title}* запостен в канал!", parse_mode="Markdown")
+    await message.answer(f"✅ *{title}* запостен!", parse_mode="Markdown")
 
 @dp.message()
 async def handle(message: types.Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     text = message.text.strip()
 
-    # Кнопки меню
     if text == "🔥 Топ фильмов":
         await show_top(message)
         return
@@ -201,7 +265,7 @@ async def handle(message: types.Message):
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
             ] + [[InlineKeyboardButton(text="✅ Проверить подписку", callback_data=f"check:{text}")]])
-            await message.answer("📢 Подпишись на канал и нажми кнопку!", reply_markup=kb)
+            await message.answer("📢 Подпишись на канал!", reply_markup=kb)
         else:
             log_search(message.from_user.id, text, "movie_id")
             await show_film(message, int(text))
@@ -216,30 +280,19 @@ async def handle(message: types.Message):
         if not movies:
             await thinking.edit_text(f"🤖 AI думает это *{movie_title}*, но не найдено.", parse_mode="Markdown")
             return
-        await thinking.edit_text(f"🤖 AI думает это *{movie_title}*! Вот варианты:", parse_mode="Markdown")
-        await show_search_results(message, movies)
+        await thinking.edit_text(f"🤖 AI думает это *{movie_title}*!", parse_mode="Markdown")
+        user_id = message.from_user.id
+        search_cache[f"{user_id}_search"] = movies
+        await send_movie_card(message, movies, 0, f"{user_id}_search")
 
     else:
-        # Сначала ищем фильм по названию
         movies = await search_movies_by_title(text)
         if movies:
-            await show_search_results(message, movies)
+            user_id = message.from_user.id
+            search_cache[f"{user_id}_search"] = movies
+            await send_movie_card(message, movies, 0, f"{user_id}_search")
         else:
-            # Если не нашли — ищем актёра
             await search_person(message, text)
-
-async def show_search_results(message, movies):
-    text = "🔍 *Результаты поиска — нажми чтобы открыть:*\n\n"
-    buttons = []
-    for m in movies:
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        rating = round(m.get("vote_average", 0), 1)
-        movie_id = m.get("id")
-        text += f"• *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title} ({year})", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
 async def show_top(message):
     async with aiohttp.ClientSession() as session:
@@ -247,17 +300,9 @@ async def show_top(message):
             params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
-    text = "🔥 *Топ популярных фильмов:*\n\n"
-    buttons = []
-    for i, m in enumerate(movies, 1):
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        rating = round(m.get("vote_average", 0), 1)
-        movie_id = m.get("id")
-        text += f"{i}. *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title}", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = message.from_user.id
+    search_cache[f"{user_id}_top"] = movies
+    await send_movie_card(message, movies, 0, f"{user_id}_top")
 
 async def show_new(message):
     async with aiohttp.ClientSession() as session:
@@ -265,17 +310,9 @@ async def show_new(message):
             params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
-    text = "🆕 *Новинки в кино:*\n\n"
-    buttons = []
-    for i, m in enumerate(movies, 1):
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        rating = round(m.get("vote_average", 0), 1)
-        movie_id = m.get("id")
-        text += f"{i}. *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title}", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = message.from_user.id
+    search_cache[f"{user_id}_new"] = movies
+    await send_movie_card(message, movies, 0, f"{user_id}_new")
 
 async def show_upcoming(message):
     async with aiohttp.ClientSession() as session:
@@ -283,17 +320,9 @@ async def show_upcoming(message):
             params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
-    text = "🎬 *Скоро в кино:*\n\n"
-    buttons = []
-    for i, m in enumerate(movies, 1):
-        title = m.get("title", "—")
-        date = m.get("release_date", "—")
-        rating = round(m.get("vote_average", 0), 1)
-        movie_id = m.get("id")
-        text += f"{i}. *{title}* — 📅 {date}\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title}", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = message.from_user.id
+    search_cache[f"{user_id}_upcoming"] = movies
+    await send_movie_card(message, movies, 0, f"{user_id}_upcoming")
 
 async def search_person(message, query):
     async with aiohttp.ClientSession() as session:
@@ -302,10 +331,7 @@ async def search_person(message, query):
             data = await r.json()
     results = data.get("results", [])
     if not results:
-        await message.answer(
-            "❌ Ничего не найдено.\n\nПопробуй:\n• ID: `572802`\n• Название: `Интерстеллар`\n• Актёр: `Tom Hanks`\n• Описание сцены",
-            parse_mode="Markdown"
-        )
+        await message.answer("❌ Ничего не найдено.\n\nПопробуй:\n• ID: `572802`\n• Название: `Интерстеллар`\n• Актёр: `Tom Hanks`\n• Описание сцены", parse_mode="Markdown")
         return
     person = results[0]
     person_id = person["id"]
@@ -316,17 +342,10 @@ async def search_person(message, query):
             params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             credits = await r.json()
     movies = sorted(credits.get("cast", []), key=lambda x: x.get("popularity", 0), reverse=True)[:8]
-    text = f"🎭 *{name}*\n📌 {known_for}\n\n🎬 *Нажми на фильм:*\n\n"
-    buttons = []
-    for m in movies:
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        movie_id = m.get("id")
-        rating = round(m.get("vote_average", 0), 1)
-        text += f"• *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title} ({year})", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = message.from_user.id
+    search_cache[f"{user_id}_person"] = movies
+    await message.answer(f"🎭 *{name}* — {known_for}\n\nЛистай карточки 👇", parse_mode="Markdown")
+    await send_movie_card(message, movies, 0, f"{user_id}_person")
 
 async def post_to_channel(movie_id, title, year, rating, overview, poster, q):
     try:
@@ -377,6 +396,22 @@ async def show_film(message, movie_id, post_channel=False):
     if post_channel:
         await post_to_channel(movie_id, title, year, rating, overview, poster, q)
 
+@dp.callback_query(lambda c: c.data.startswith("card:"))
+async def card_nav(callback: types.CallbackQuery):
+    parts = callback.data.split(":")
+    source = parts[1]
+    index = int(parts[2])
+    movies = search_cache.get(source)
+    if not movies:
+        await callback.answer("Сессия истекла, повтори поиск", show_alert=True)
+        return
+    await send_movie_card(callback.message, movies, index, source, edit=True)
+    await callback.answer()
+
+@dp.callback_query(lambda c: c.data == "noop")
+async def noop(callback: types.CallbackQuery):
+    await callback.answer()
+
 @dp.callback_query(lambda c: c.data.startswith("film:"))
 async def film_callback(callback: types.CallbackQuery):
     movie_id = int(callback.data.split(":")[1])
@@ -412,17 +447,9 @@ async def similar(callback: types.CallbackQuery):
     if not results:
         await callback.answer("Похожих не найдено", show_alert=True)
         return
-    text = "🎬 *Похожие фильмы:*\n\n"
-    buttons = []
-    for m in results:
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        rating = round(m.get("vote_average", 0), 1)
-        movie_id = m.get("id")
-        text += f"• *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title}", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = callback.from_user.id
+    search_cache[f"{user_id}_sim"] = results
+    await send_movie_card(callback.message, results, 0, f"{user_id}_sim")
     await callback.answer()
 
 @dp.callback_query(lambda c: c.data.startswith("cast:"))
@@ -460,17 +487,10 @@ async def person_callback(callback: types.CallbackQuery):
             person = await r.json()
     name = person.get("name", "—")
     movies = sorted(credits.get("cast", []), key=lambda x: x.get("popularity", 0), reverse=True)[:8]
-    text = f"🎭 *{name}*\n\n🎬 *Фильмы:*\n\n"
-    buttons = []
-    for m in movies:
-        title = m.get("title", "—")
-        year = m.get("release_date", "")[:4]
-        movie_id = m.get("id")
-        rating = round(m.get("vote_average", 0), 1)
-        text += f"• *{title}* ({year}) — ⭐{rating}/10\n"
-        buttons.append([InlineKeyboardButton(text=f"🎬 {title} ({year})", callback_data=f"film:{movie_id}")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    user_id = callback.from_user.id
+    search_cache[f"{user_id}_person"] = movies
+    await callback.message.answer(f"🎭 *{name}*\n\nЛистай карточки 👇", parse_mode="Markdown")
+    await send_movie_card(callback.message, movies, 0, f"{user_id}_person")
     await callback.answer()
 
 async def main():
