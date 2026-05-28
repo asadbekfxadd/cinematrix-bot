@@ -43,16 +43,17 @@ async def ai_find_movie(description):
                     "content-type": "application/json"
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": 200,
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 100,
                     "messages": [{
                         "role": "user",
-                        "content": f"Пользователь описывает фильм. Определи название фильма. Описание: {description}. Ответь ТОЛЬКО названием фильма на английском языке. Например: Inception. Если не знаешь — напиши unknown."
+                        "content": f"What movie is this describing? Description: {description}. Reply with ONLY the English movie title, nothing else. If unknown, reply: unknown"
                     }]
                 },
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as r:
                 data = await r.json()
+                print(f"AI response: {data}")
                 if "content" in data:
                     return data["content"][0]["text"].strip().strip('"')
                 else:
@@ -109,7 +110,7 @@ async def handle(message: types.Message):
         thinking = await message.answer("🤖 AI ищет фильм по описанию...")
         movie_title = await ai_find_movie(text)
 
-        if movie_title == "unknown":
+        if movie_title.lower() == "unknown":
             await thinking.edit_text("❌ AI не смог определить фильм. Попробуй описать подробнее!")
             return
 
