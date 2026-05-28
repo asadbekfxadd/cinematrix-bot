@@ -3,10 +3,12 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
 import os
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 TMDB_URL = "https://api.themoviedb.org/3"
 
 bot = Bot(token=BOT_TOKEN)
@@ -70,11 +72,22 @@ async def show_film(message, movie_id):
     rating = m.get("vote_average", 0)
     overview = m.get("overview", "Описание отсутствует")
     poster = m.get("poster_path", "")
+
+    search_query = title.replace(" ", "+")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🎬 Похожие", callback_data=f"sim:{movie_id}"),
+            InlineKeyboardButton(text="👥 Актёры", callback_data=f"cast:{movie_id}")
+        ],
+        [
+            InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={search_query}"),
+            InlineKeyboardButton(text="🎥 Filmix", url=f"https://filmix.ac/search/{search_query}"),
+            InlineKeyboardButton(text="📺 Kinogo", url=f"https://kinogo.best/search/{search_query}")
+        ]
+    ])
+
     text = f"🎬 *{title}* ({year})\n\n⭐ Рейтинг: {rating}/10\n\n📝 {overview}"
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🎬 Похожие", callback_data=f"sim:{movie_id}"),
-        InlineKeyboardButton(text="👥 Актёры", callback_data=f"cast:{movie_id}")
-    ]])
     if poster:
         await message.answer_photo(f"https://image.tmdb.org/t/p/w500{poster}", caption=text, parse_mode="Markdown", reply_markup=kb)
     else:
