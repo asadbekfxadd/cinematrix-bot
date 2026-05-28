@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import urllib.parse
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -62,18 +63,22 @@ async def handle(message: types.Message):
 
 async def show_film(message, movie_id):
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+        async with session.get(
+            f"{TMDB_URL}/movie/{movie_id}",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}
+        ) as r:
             m = await r.json()
+
     if not m.get("title"):
         await message.answer("❌ Фильм не найден. Проверь ID.")
         return
+
     title = m.get("title", "—")
     year = m.get("release_date", "")[:4]
-    rating = m.get("vote_average", 0)
+    rating = round(m.get("vote_average", 0), 1)
     overview = m.get("overview", "Описание отсутствует")
     poster = m.get("poster_path", "")
-
-    search_query = title.replace(" ", "+")
+    q = urllib.parse.quote(title)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -81,15 +86,21 @@ async def show_film(message, movie_id):
             InlineKeyboardButton(text="👥 Актёры", callback_data=f"cast:{movie_id}")
         ],
         [
-            InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={search_query}"),
-            InlineKeyboardButton(text="🎥 Filmix", url=f"https://filmix.ac/search/{search_query}"),
-            InlineKeyboardButton(text="📺 Kinogo", url=f"https://kinogo.best/search/{search_query}")
+            InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={q}"),
+            InlineKeyboardButton(text="🎥 Filmix", url=f"https://filmix.ac/search/{q}"),
+            InlineKeyboardButton(text="📺 Kinogo", url=f"https://kinogo.best/?do=search&subaction=search&story={q}")
         ]
     ])
 
     text = f"🎬 *{title}* ({year})\n\n⭐ Рейтинг: {rating}/10\n\n📝 {overview}"
+
     if poster:
-        await message.answer_photo(f"https://image.tmdb.org/t/p/w500{poster}", caption=text, parse_mode="Markdown", reply_markup=kb)
+        await message.answer_photo(
+            f"https://image.tmdb.org/t/p/w500{poster}",
+            caption=text,
+            parse_mode="Markdown",
+            reply_markup=kb
+        )
     else:
         await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
@@ -108,7 +119,10 @@ async def check_callback(callback: types.CallbackQuery):
 async def similar(callback: types.CallbackQuery):
     movie_id = callback.data.split(":")[1]
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}/similar", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+        async with session.get(
+            f"{TMDB_URL}/movie/{movie_id}/similar",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}
+        ) as r:
             data = await r.json()
     results = data.get("results", [])[:5]
     if not results:
@@ -124,7 +138,10 @@ async def similar(callback: types.CallbackQuery):
 async def cast(callback: types.CallbackQuery):
     movie_id = callback.data.split(":")[1]
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}/credits", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+        async with session.get(
+            f"{TMDB_URL}/movie/{movie_id}/credits",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}
+        ) as r:
             data = await r.json()
     actors = data.get("cast", [])[:5]
     if not actors:
@@ -132,7 +149,7 @@ async def cast(callback: types.CallbackQuery):
         return
     text = "👥 *Актёры:*\n\n"
     for a in actors:
-        text += f"• *{a['name']}* — {a.get('character','')}\n"
+        text += f"• *{a['name']}* — {a.get('character', '')}\n"
     await callback.message.answer(text, parse_mode="Markdown")
     await callback.answer()
 
