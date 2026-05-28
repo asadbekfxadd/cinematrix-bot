@@ -33,28 +33,34 @@ async def check_sub(user_id):
     return not_subbed
 
 async def ai_find_movie(description):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            },
-            json={
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 200,
-                "messages": [{
-                    "role": "user",
-                    "content": f"""Пользователь описывает фильм. Определи название фильма.
-Описание: {description}
-
-Ответь ТОЛЬКО названием фильма на английском языке, ничего больше. Например: "Inception" или "The Dark Knight". Если не знаешь — напиши "unknown"."""
-                }]
-            }
-        ) as r:
-            data = await r.json()
-            return data["content"][0]["text"].strip().strip('"')
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                },
+                json={
+                    "model": "claude-sonnet-4-20250514",
+                    "max_tokens": 200,
+                    "messages": [{
+                        "role": "user",
+                        "content": f"Пользователь описывает фильм. Определи название фильма. Описание: {description}. Ответь ТОЛЬКО названием фильма на английском языке. Например: Inception. Если не знаешь — напиши unknown."
+                    }]
+                },
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as r:
+                data = await r.json()
+                if "content" in data:
+                    return data["content"][0]["text"].strip().strip('"')
+                else:
+                    print(f"API error: {data}")
+                    return "unknown"
+    except Exception as e:
+        print(f"AI error: {e}")
+        return "unknown"
 
 async def search_movie_by_title(title):
     async with aiohttp.ClientSession() as session:
@@ -100,7 +106,6 @@ async def handle(message: types.Message):
             await show_film(message, int(text))
 
     elif len(text) > 15:
-        # Длинный текст — AI поиск по описанию
         thinking = await message.answer("🤖 AI ищет фильм по описанию...")
         movie_title = await ai_find_movie(text)
 
@@ -125,7 +130,6 @@ async def handle(message: types.Message):
             await show_film(message, movie["id"])
 
     else:
-        # Короткий текст — поиск актёра
         await search_person(message, text)
 
 async def search_person(message, query):
@@ -139,7 +143,7 @@ async def search_person(message, query):
     results = data.get("results", [])
     if not results:
         await message.answer(
-            "❌ Актёр не найден.\n\nПопробуй:\n• Написать имя на английском: `Tom Hanks`\n• Или описать фильм подробнее (больше 15 символов)",
+            "❌ Не найдено.\n\nПопробуй:\n• ID фильма: `572802`\n• Имя актёра: `Tom Hanks`\n• Описание сцены (больше 15 символов)",
             parse_mode="Markdown"
         )
         return
@@ -157,7 +161,6 @@ async def search_person(message, query):
             credits = await r.json()
 
     movies = sorted(credits.get("cast", []), key=lambda x: x.get("popularity", 0), reverse=True)[:8]
-
     text = f"🎭 *{name}*\n📌 {known_for}\n\n🎬 *Известные фильмы:*\n\n"
     for m in movies:
         title = m.get("title", "—")
