@@ -1,11 +1,13 @@
 import asyncio
 import aiohttp
 import urllib.parse
+import sqlite3
+import os
+from datetime import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -13,6 +15,7 @@ TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TMDB_URL = "https://api.themoviedb.org/3"
 CHANNEL = "@thebobodjonov"
+ADMIN_ID = 6250747288
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -20,6 +23,64 @@ dp = Dispatcher()
 CHANNELS = [
     {"name": "Бободжонов", "username": "@thebobodjonov", "url": "https://t.me/thebobodjonov"},
 ]
+
+def init_db():
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            joined_at TEXT,
+            last_active TEXT,
+            requests_count INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            query TEXT,
+            result TEXT,
+            created_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def add_user(user_id, username, first_name):
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    c.execute("""
+        INSERT OR IGNORE INTO users (user_id, username, first_name, joined_at, last_active)
+        VALUES (?, ?, ?, ?, ?)
+    """, (user_id, username, first_name, now, now))
+    c.execute("""
+        UPDATE users SET last_active=?, requests_count=requests_count+1 WHERE user_id=?
+    """, (now, user_id))
+    conn.commit()
+    conn.close()
+
+def get_stats():
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    total = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_active = c.execute("SELECT COUNT(*) FROM users WHERE last_active LIKE ?", (f"{today}%",)).fetchone()[0]
+    total_requests = c.execute("SELECT SUM(requests_count) FROM users").fetchone()[0] or 0
+    conn.close()
+    return total, today_active, total_requests
+
+def log_search(user_id, query, result):
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    c.execute("INSERT INTO searches (user_id, query, result, created_at) VALUES (?, ?, ?, ?)",
+              (user_id, query, result, now))
+    conn.commit()
+    conn.close()
 
 async def check_sub(user_id):
     not_subbed = []
@@ -53,11 +114,9 @@ async def ai_find_movie(description):
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as r:
                 data = await r.json()
-                print(f"AI response: {data}")
                 if "content" in data:
                     return data["content"][0]["text"].strip().strip('"')
                 else:
-                    print(f"API error: {data}")
                     return "unknown"
     except Exception as e:
         print(f"AI error: {e}")
@@ -75,6 +134,7 @@ async def search_movie_by_title(title):
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="🎬 Открыть CINEMATRIX",
@@ -86,14 +146,60 @@ async def start(message: types.Message):
         "📌 Как пользоваться:\n"
         "🔢 *ID фильма* — например: `572802`\n"
         "🎭 *Имя актёра* — например: `Tom Hanks`\n"
-        "🤖 *Опиши сцену* — например: `фильм где человек застрял на острове один`\n\n"
+        "🤖 *Опиши сцену* — например: `фильм где человек застрял на острове один`\n"
+        "📊 /stats — статистика бота\n"
+        "🎬 /top — топ фильмов\n\n"
         "Или нажми кнопку 👇",
         reply_markup=kb,
         parse_mode="Markdown"
     )
 
+@dp.message(Command("stats"))
+async def stats(message: types.Message):
+    total, today_active, total_requests = get_stats()
+    await message.answer(
+        f"📊 *Статистика CINEMATRIX*\n\n"
+        f"👥 Всего пользователей: *{total}*\n"
+        f"🔥 Активны сегодня: *{today_active}*\n"
+        f"🔍 Всего запросов: *{total_requests}*",
+        parse_mode="Markdown"
+    )
+
+@dp.message(Command("admin"))
+async def admin(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ У тебя нет доступа к этой команде.")
+        return
+    total, today_active, total_requests = get_stats()
+    await message.answer(
+        f"👑 *Админ панель CINEMATRIX*\n\n"
+        f"👥 Всего пользователей: *{total}*\n"
+        f"🔥 Активны сегодня: *{today_active}*\n"
+        f"🔍 Всего запросов: *{total_requests}*",
+        parse_mode="Markdown"
+    )
+
+@dp.message(Command("top"))
+async def top_movies(message: types.Message):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{TMDB_URL}/movie/popular",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}
+        ) as r:
+            data = await r.json()
+    movies = data.get("results", [])[:10]
+    text = "🔥 *Топ популярных фильмов:*\n\n"
+    for i, m in enumerate(movies, 1):
+        title = m.get("title", "—")
+        year = m.get("release_date", "")[:4]
+        rating = round(m.get("vote_average", 0), 1)
+        movie_id = m.get("id")
+        text += f"{i}. *{title}* ({year}) — ⭐{rating}/10\n🆔 `{movie_id}`\n\n"
+    await message.answer(text, parse_mode="Markdown")
+
 @dp.message()
 async def handle(message: types.Message):
+    add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     text = message.text.strip()
 
     if text.isdigit():
@@ -104,6 +210,7 @@ async def handle(message: types.Message):
             ] + [[InlineKeyboardButton(text="✅ Проверить подписку", callback_data=f"check:{text}")]])
             await message.answer("📢 Подпишись на канал и нажми кнопку!", reply_markup=kb)
         else:
+            log_search(message.from_user.id, text, "movie_id")
             await show_film(message, int(text))
 
     elif len(text) > 15:
@@ -116,10 +223,11 @@ async def handle(message: types.Message):
 
         movie = await search_movie_by_title(movie_title)
         if not movie:
-            await thinking.edit_text(f"🤖 AI думает это *{movie_title}*, но фильм не найден в базе.", parse_mode="Markdown")
+            await thinking.edit_text(f"🤖 AI думает это *{movie_title}*, но фильм не найден.", parse_mode="Markdown")
             return
 
         await thinking.edit_text(f"🤖 AI думает это *{movie_title}*!", parse_mode="Markdown")
+        log_search(message.from_user.id, text, movie_title)
 
         not_subbed = await check_sub(message.from_user.id)
         if not_subbed:
@@ -131,6 +239,7 @@ async def handle(message: types.Message):
             await show_film(message, movie["id"])
 
     else:
+        log_search(message.from_user.id, text, "person_search")
         await search_person(message, text)
 
 async def search_person(message, query):
@@ -278,6 +387,7 @@ async def cast(callback: types.CallbackQuery):
     await callback.answer()
 
 async def main():
+    init_db()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
