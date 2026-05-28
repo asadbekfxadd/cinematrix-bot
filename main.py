@@ -3,12 +3,10 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
 TMDB_URL = "https://api.themoviedb.org/3"
 
 bot = Bot(token=BOT_TOKEN)
