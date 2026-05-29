@@ -42,7 +42,6 @@ TEXTS = {
         "rating": "⭐ Рейтинг: {}/10",
         "similar": "🎬 Похожие",
         "actors": "👥 Актёры",
-        "similar_title": "🎬 *Похожие фильмы:*\n\n",
         "actors_title": "👥 *Актёры — нажми чтобы открыть фильмы:*\n\n",
         "actor_movies": "🎭 *{}*\n\nЛистай карточки 👇",
         "no_similar": "Похожих не найдено",
@@ -77,7 +76,7 @@ TEXTS = {
         "choose_lang": "Выбери язык / Tilni tanlang:",
         "session_expired": "Сессия истекла, повтори поиск",
         "morning_msg": "🌅 *Доброе утро!*\n\n🎬 Фильм дня:\n\n*{}* ({})\n⭐ Рейтинг: {}/10\n\n📝 {}\n\n🆔 Код: `{}`\n\nОткрой бота и введи код 👆",
-        "resubscribe": "📢 Привет! Ты отписался от канала.\n\nЧтобы продолжить пользоваться ботом — подпишись снова:",
+        "resubscribe": "📢 Привет! Ты отписался от канала.\n\nЧтобы продолжить — подпишись снова:",
     },
     "uz": {
         "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n\nPastdagi tugmalardan foydalaning 👇",
@@ -94,7 +93,6 @@ TEXTS = {
         "rating": "⭐ Reyting: {}/10",
         "similar": "🎬 O'xshash",
         "actors": "👥 Aktyorlar",
-        "similar_title": "🎬 *O'xshash filmlar:*\n\n",
         "actors_title": "👥 *Aktyorlar — filmlarni ochish uchun bosing:*\n\n",
         "actor_movies": "🎭 *{}*\n\nKartochkalarni aylantiring 👇",
         "no_similar": "O'xshash film topilmadi",
@@ -399,19 +397,14 @@ async def send_movie_card(message, movies, index, source, edit=False, user_id=No
         else:
             await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
-# ===== УТРЕННЯЯ РАССЫЛКА =====
 async def morning_broadcast():
     while True:
         now = datetime.now()
-        # Отправляем в 09:00 каждый день
         next_run = now.replace(hour=9, minute=0, second=0, microsecond=0)
         if now >= next_run:
             next_run += timedelta(days=1)
-        wait_seconds = (next_run - now).total_seconds()
-        await asyncio.sleep(wait_seconds)
-
+        await asyncio.sleep((next_run - now).total_seconds())
         try:
-            # Получаем случайный популярный фильм
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{TMDB_URL}/movie/popular",
                     params={"api_key": TMDB_API_KEY, "language": "ru-RU", "page": random.randint(1, 5)}) as r:
@@ -426,34 +419,23 @@ async def morning_broadcast():
             overview = (movie.get("overview", "") or "")[:200]
             movie_id = movie.get("id")
             poster = movie.get("poster_path", "")
-
             users = get_all_users()
-            sent = 0
             for user_id in users:
                 try:
                     msg = tr(user_id, "morning_msg", title, year, rating, overview, movie_id)
                     kb = InlineKeyboardMarkup(inline_keyboard=[[
-                        InlineKeyboardButton(text="🎬 Открыть фильм", callback_data=f"film:{movie_id}")
+                        InlineKeyboardButton(text=tr(user_id, "open_film"), callback_data=f"film:{movie_id}")
                     ]])
                     if poster:
-                        await bot.send_photo(
-                            user_id,
-                            f"https://image.tmdb.org/t/p/w500{poster}",
-                            caption=msg,
-                            parse_mode="Markdown",
-                            reply_markup=kb
-                        )
+                        await bot.send_photo(user_id, f"https://image.tmdb.org/t/p/w500{poster}", caption=msg, parse_mode="Markdown", reply_markup=kb)
                     else:
                         await bot.send_message(user_id, msg, parse_mode="Markdown", reply_markup=kb)
-                    sent += 1
                     await asyncio.sleep(0.05)
                 except:
                     pass
-            print(f"Morning broadcast sent to {sent} users")
         except Exception as e:
             print(f"Morning broadcast error: {e}")
 
-# ===== КОМАНДЫ =====
 @dp.message(Command("start"))
 async def start(message: types.Message):
     args = message.text.split()
@@ -577,7 +559,6 @@ async def handle(message: types.Message):
         await show_invite(message)
         return
 
-    # Проверяем подписку при КАЖДОМ запросе
     not_subbed = await check_sub(user_id)
     if not_subbed:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -588,7 +569,6 @@ async def handle(message: types.Message):
 
     if text.isdigit():
         await show_film(message, int(text))
-
     elif len(text) > 20:
         thinking = await message.answer(tr(user_id, "ai_searching"))
         movie_title = await ai_find_movie(text)
@@ -612,7 +592,6 @@ async def handle(message: types.Message):
         await thinking.edit_text(tr(user_id, "ai_found", titles[0]), parse_mode="Markdown")
         search_cache[f"{user_id}_search"] = unique[:5]
         await send_movie_card(message, unique[:5], 0, f"{user_id}_search", user_id=user_id)
-
     else:
         movies = await search_movies_by_title(text, user_id)
         if movies:
@@ -638,17 +617,22 @@ async def show_favorites(message):
 
 async def start_quiz(message):
     user_id = message.from_user.id
+    lang = get_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+        async with session.get(f"{TMDB_URL}/movie/popular",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
-    movies = data.get("results", [])
+    movies = [m for m in data.get("results", []) if m.get("overview")]
     if not movies:
         return
     movie = random.choice(movies)
     title = movie.get("title", "—")
     overview = (movie.get("overview", "") or "")[:300]
     movie_id = movie.get("id")
-    wrong = random.sample([m.get("title") for m in movies if m.get("title") != title], min(3, len(movies)-1))
+    if lang == "uz" and overview:
+        overview = await translate_to_uz(overview)
+    wrong_titles = [m.get("title") for m in movies if m.get("title") != title]
+    wrong = random.sample(wrong_titles, min(3, len(wrong_titles)))
     options = wrong + [title]
     random.shuffle(options)
     search_cache[f"quiz_{user_id}"] = {"answer": title, "movie_id": movie_id}
@@ -735,12 +719,10 @@ async def show_film(message, movie_id, post_channel=False):
     overview = m.get("overview", "") or ""
     poster = m.get("poster_path", "")
     q = urllib.parse.quote(title)
-
     if lang == "uz" and overview:
         overview = await translate_to_uz(overview)
     if not overview:
         overview = tr(user_id, "no_desc")
-
     fav = is_favorited(user_id, movie_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
