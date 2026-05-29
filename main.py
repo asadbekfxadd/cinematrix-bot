@@ -3,6 +3,7 @@ import aiohttp
 import urllib.parse
 import sqlite3
 import os
+import random
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -75,7 +76,8 @@ TEXTS = {
         "no_desc": "Описание отсутствует",
         "choose_lang": "Выбери язык / Tilni tanlang:",
         "session_expired": "Сессия истекла, повтори поиск",
-        "translating": "🔄 Переводим описание...",
+        "morning_msg": "🌅 *Доброе утро!*\n\n🎬 Фильм дня:\n\n*{}* ({})\n⭐ Рейтинг: {}/10\n\n📝 {}\n\n🆔 Код: `{}`\n\nОткрой бота и введи код 👆",
+        "resubscribe": "📢 Привет! Ты отписался от канала.\n\nЧтобы продолжить пользоваться ботом — подпишись снова:",
     },
     "uz": {
         "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n\nPastdagi tugmalardan foydalaning 👇",
@@ -126,7 +128,8 @@ TEXTS = {
         "no_desc": "Tavsif mavjud emas",
         "choose_lang": "Tilni tanlang / Выбери язык:",
         "session_expired": "Sessiya tugadi, qaytadan qidiring",
-        "translating": "🔄 Tarjima qilinmoqda...",
+        "morning_msg": "🌅 *Xayrli tong!*\n\n🎬 Kunning filmi:\n\n*{}* ({})\n⭐ Reyting: {}/10\n\n📝 {}\n\n🆔 Kod: `{}`\n\nBotni oching va kodni kiriting 👆",
+        "resubscribe": "📢 Salom! Siz kanaldan obunani bekor qildingiz.\n\nBotdan foydalanishni davom ettirish uchun qayta obuna bo'ling:",
     }
 }
 
@@ -210,9 +213,6 @@ def get_lang(user_id):
     conn.close()
     return row[0] if row and row[0] else "ru"
 
-def get_tmdb_lang(user_id):
-    return "ru-RU"
-
 def get_stats():
     conn = sqlite3.connect("cinematrix.db")
     c = conn.cursor()
@@ -291,7 +291,7 @@ async def check_sub(user_id):
     for ch in CHANNELS:
         try:
             member = await bot.get_chat_member(ch["username"], user_id)
-            if member.status in ["left", "kicked"]:
+            if member.status in ["left", "kicked", "banned"]:
                 not_subbed.append(ch)
         except:
             not_subbed.append(ch)
@@ -399,6 +399,61 @@ async def send_movie_card(message, movies, index, source, edit=False, user_id=No
         else:
             await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
+# ===== УТРЕННЯЯ РАССЫЛКА =====
+async def morning_broadcast():
+    while True:
+        now = datetime.now()
+        # Отправляем в 09:00 каждый день
+        next_run = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        if now >= next_run:
+            next_run += timedelta(days=1)
+        wait_seconds = (next_run - now).total_seconds()
+        await asyncio.sleep(wait_seconds)
+
+        try:
+            # Получаем случайный популярный фильм
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{TMDB_URL}/movie/popular",
+                    params={"api_key": TMDB_API_KEY, "language": "ru-RU", "page": random.randint(1, 5)}) as r:
+                    data = await r.json()
+            movies = data.get("results", [])
+            if not movies:
+                continue
+            movie = random.choice(movies)
+            title = movie.get("title", "—")
+            year = (movie.get("release_date", "") or "")[:4]
+            rating = round(movie.get("vote_average", 0) or 0, 1)
+            overview = (movie.get("overview", "") or "")[:200]
+            movie_id = movie.get("id")
+            poster = movie.get("poster_path", "")
+
+            users = get_all_users()
+            sent = 0
+            for user_id in users:
+                try:
+                    msg = tr(user_id, "morning_msg", title, year, rating, overview, movie_id)
+                    kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🎬 Открыть фильм", callback_data=f"film:{movie_id}")
+                    ]])
+                    if poster:
+                        await bot.send_photo(
+                            user_id,
+                            f"https://image.tmdb.org/t/p/w500{poster}",
+                            caption=msg,
+                            parse_mode="Markdown",
+                            reply_markup=kb
+                        )
+                    else:
+                        await bot.send_message(user_id, msg, parse_mode="Markdown", reply_markup=kb)
+                    sent += 1
+                    await asyncio.sleep(0.05)
+                except:
+                    pass
+            print(f"Morning broadcast sent to {sent} users")
+        except Exception as e:
+            print(f"Morning broadcast error: {e}")
+
+# ===== КОМАНДЫ =====
 @dp.message(Command("start"))
 async def start(message: types.Message):
     args = message.text.split()
@@ -503,15 +558,6 @@ async def handle(message: types.Message):
     lang = get_lang(user_id)
     tx = TEXTS[lang]
 
-    menu_buttons = [
-        tx["top"], tx["new"], tx["upcoming"],
-        tx["favorites"], tx["quiz"], tx["invite"],
-        "🔥 Топ фильмов", "🆕 Новинки", "🎬 Скоро в кино",
-        "❤️ Избранное", "🎮 Квиз", "👥 Пригласить",
-        "🔥 Top filmlar", "🆕 Yangiliklar", "🎬 Tez chiqadi",
-        "❤️ Sevimlilar", "🎮 Viktorina", "👥 Taklif qilish"
-    ]
-
     if text in ["🔥 Топ фильмов", "🔥 Top filmlar", tx["top"]]:
         await show_top(message)
         return
@@ -531,15 +577,17 @@ async def handle(message: types.Message):
         await show_invite(message)
         return
 
+    # Проверяем подписку при КАЖДОМ запросе
+    not_subbed = await check_sub(user_id)
+    if not_subbed:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
+        ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check_only:{user_id}")]])
+        await message.answer(tr(user_id, "resubscribe"), reply_markup=kb, parse_mode="Markdown")
+        return
+
     if text.isdigit():
-        not_subbed = await check_sub(user_id)
-        if not_subbed:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
-            ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check:{text}")]])
-            await message.answer(tr(user_id, "subscribe"), reply_markup=kb)
-        else:
-            await show_film(message, int(text))
+        await show_film(message, int(text))
 
     elif len(text) > 20:
         thinking = await message.answer(tr(user_id, "ai_searching"))
@@ -589,7 +637,6 @@ async def show_favorites(message):
     await send_movie_card(message, favs, 0, f"{user_id}_fav", user_id=user_id)
 
 async def start_quiz(message):
-    import random
     user_id = message.from_user.id
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
@@ -689,7 +736,6 @@ async def show_film(message, movie_id, post_channel=False):
     poster = m.get("poster_path", "")
     q = urllib.parse.quote(title)
 
-    # Переводим описание на узбекский если нужно
     if lang == "uz" and overview:
         overview = await translate_to_uz(overview)
     if not overview:
@@ -732,6 +778,17 @@ async def lang_callback(callback: types.CallbackQuery):
     await callback.message.answer(tr(user_id, "welcome"), reply_markup=get_menu(user_id), parse_mode="Markdown")
     await callback.message.answer(tr(user_id, "choose_section"), reply_markup=kb_mini)
     await callback.answer()
+
+@dp.callback_query(lambda c: c.data.startswith("check_only:"))
+async def check_only_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    not_subbed = await check_sub(user_id)
+    if not_subbed:
+        await callback.answer(tr(user_id, "not_subscribed"), show_alert=True)
+    else:
+        await callback.message.delete()
+        await callback.message.answer(tr(user_id, "welcome"), reply_markup=get_menu(user_id), parse_mode="Markdown")
+        await callback.answer()
 
 @dp.callback_query(lambda c: c.data.startswith("quiz:"))
 async def quiz_answer(callback: types.CallbackQuery):
@@ -869,6 +926,7 @@ async def person_callback(callback: types.CallbackQuery):
 
 async def main():
     init_db()
+    asyncio.create_task(morning_broadcast())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
