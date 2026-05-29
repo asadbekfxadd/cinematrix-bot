@@ -25,18 +25,9 @@ CHANNELS = [
     {"name": "Бободжонов", "username": "@thebobodjonov", "url": "https://t.me/thebobodjonov"},
 ]
 
-# ===== ПЕРЕВОДЫ =====
 TEXTS = {
     "ru": {
-        "welcome": (
-            "🎬 Добро пожаловать в CINEMATRIX!\n\n"
-            "📌 Как пользоваться:\n"
-            "🔢 *ID фильма* — например: `572802`\n"
-            "🔤 *Название* — например: `Интерстеллар`\n"
-            "🎭 *Актёр* — например: `Tom Hanks`\n"
-            "🤖 *Опиши сцену* — например: `фильм где человек застрял на острове`\n\n"
-            "Используй кнопки внизу 👇"
-        ),
+        "welcome": "🎬 Добро пожаловать в CINEMATRIX!\n\n📌 Как пользоваться:\n🔢 *ID фильма* — например: `572802`\n🔤 *Название* — например: `Интерстеллар`\n🎭 *Актёр* — например: `Tom Hanks`\n🤖 *Опиши сцену* — например: `фильм где человек застрял на острове`\n\nИспользуй кнопки внизу 👇",
         "choose_section": "Выбери раздел:",
         "subscribe": "📢 Подпишись на канал и нажми кнопку!",
         "check_sub": "✅ Проверить подписку",
@@ -67,53 +58,27 @@ TEXTS = {
         "fav_btn": "❤️ В избранное",
         "unfav_btn": "💔 Убрать",
         "open_film": "✅ Открыть",
-        "invite_text": (
-            "👥 *Реферальная система*\n\n"
-            "Твоя ссылка:\n`{}`\n\n"
-            "📊 Ты пригласил: *{}* человек\n\n"
-            "🎁 За каждого приглашённого — 24 часа без подписки!"
-        ),
-        "new_user": (
-            "🎉 По твоей ссылке пришёл новый пользователь!\n"
-            "👥 Всего приглашено: *{}*\n"
-            "🎁 Тебе выдан бонус — 24 часа без подписки!"
-        ),
+        "invite_text": "👥 *Реферальная система*\n\nТвоя ссылка:\n`{}`\n\n📊 Ты пригласил: *{}* человек\n\n🎁 За каждого приглашённого — 24 часа без подписки!",
+        "new_user": "🎉 По твоей ссылке пришёл новый пользователь!\n👥 Всего приглашено: *{}*\n🎁 Тебе выдан бонус — 24 часа без подписки!",
         "quiz_title": "🎮 *Угадай фильм!*\n\n📝 {}\n\nВыбери правильный ответ:",
         "quiz_correct": "✅ Правильно!",
         "quiz_wrong": "❌ Неправильно! Правильный ответ: {}",
         "quiz_expired": "Квиз истёк!",
-        "stats": (
-            "📊 *Статистика CINEMATRIX*\n\n"
-            "👥 Всего: *{}*\n"
-            "🔥 Сегодня: *{}*\n"
-            "🔍 Запросов: *{}*\n"
-            "🔗 Рефералов: *{}*\n\n"
-            "👤 Твои приглашения: *{}*"
-        ),
+        "stats": "📊 *Статистика CINEMATRIX*\n\n👥 Всего: *{}*\n🔥 Сегодня: *{}*\n🔍 Запросов: *{}*\n🔗 Рефералов: *{}*\n\n👤 Твои приглашения: *{}*",
         "no_access": "❌ Нет доступа.",
         "posting": "📤 Постим...",
         "posted": "✅ *{}* запостен!",
-        "post_error": "❌ Фильм не найдено.",
+        "post_error": "❌ Фильм не найден.",
         "broadcast_usage": "❌ Используй: `/broadcast Привет всем!`",
         "broadcast_done": "✅ Рассылка завершена!\n📨 Отправлено: *{}*\n❌ Ошибок: *{}*",
         "broadcast_sending": "📢 Отправляю {} пользователям...",
         "no_desc": "Описание отсутствует",
-        "lang_ru": "🇷🇺 Русский",
-        "lang_uz": "🇺🇿 O'zbek",
         "choose_lang": "Выбери язык / Tilni tanlang:",
         "session_expired": "Сессия истекла, повтори поиск",
-        "get_in_bot": "🤖 Получить в боте",
+        "translating": "🔄 Переводим описание...",
     },
     "uz": {
-        "welcome": (
-            "🎬 CINEMATRIX ga xush kelibsiz!\n\n"
-            "📌 Qanday foydalanish:\n"
-            "🔢 *Film ID* — masalan: `572802`\n"
-            "🔤 *Nomi* — masalan: `Interstellar`\n"
-            "🎭 *Aktyor* — masalan: `Tom Hanks`\n"
-            "🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n\n"
-            "Pastdagi tugmalardan foydalaning 👇"
-        ),
+        "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n\nPastdagi tugmalardan foydalaning 👇",
         "choose_section": "Bo'limni tanlang:",
         "subscribe": "📢 Kanalga obuna bo'ling va tugmani bosing!",
         "check_sub": "✅ Obunani tekshirish",
@@ -144,29 +109,13 @@ TEXTS = {
         "fav_btn": "❤️ Sevimlilarga",
         "unfav_btn": "💔 O'chirish",
         "open_film": "✅ Ochish",
-        "invite_text": (
-            "👥 *Referal tizimi*\n\n"
-            "Sizning havolangiz:\n`{}`\n\n"
-            "📊 Siz taklif qildingiz: *{}* kishi\n\n"
-            "🎁 Har bir taklif qilingan uchun — 24 soat obunasiz!"
-        ),
-        "new_user": (
-            "🎉 Sizning havolangiz orqali yangi foydalanuvchi keldi!\n"
-            "👥 Jami taklif qilingan: *{}*\n"
-            "🎁 Sizga bonus berildi — 24 soat obunasiz!"
-        ),
+        "invite_text": "👥 *Referal tizimi*\n\nSizning havolangiz:\n`{}`\n\n📊 Siz taklif qildingiz: *{}* kishi\n\n🎁 Har bir taklif qilingan uchun — 24 soat obunasiz!",
+        "new_user": "🎉 Sizning havolangiz orqali yangi foydalanuvchi keldi!\n👥 Jami taklif qilingan: *{}*\n🎁 Sizga bonus berildi — 24 soat obunasiz!",
         "quiz_title": "🎮 *Filmni toping!*\n\n📝 {}\n\nTo'g'ri javobni tanlang:",
         "quiz_correct": "✅ To'g'ri!",
         "quiz_wrong": "❌ Noto'g'ri! To'g'ri javob: {}",
         "quiz_expired": "Viktorina muddati tugadi!",
-        "stats": (
-            "📊 *CINEMATRIX statistikasi*\n\n"
-            "👥 Jami: *{}*\n"
-            "🔥 Bugun: *{}*\n"
-            "🔍 So'rovlar: *{}*\n"
-            "🔗 Referallar: *{}*\n\n"
-            "👤 Sizning takliflaringiz: *{}*"
-        ),
+        "stats": "📊 *CINEMATRIX statistikasi*\n\n👥 Jami: *{}*\n🔥 Bugun: *{}*\n🔍 So'rovlar: *{}*\n🔗 Referallar: *{}*\n\n👤 Sizning takliflaringiz: *{}*",
         "no_access": "❌ Ruxsat yo'q.",
         "posting": "📤 Joylashtirilmoqda...",
         "posted": "✅ *{}* joylashtirildi!",
@@ -175,15 +124,13 @@ TEXTS = {
         "broadcast_done": "✅ Yuborish tugadi!\n📨 Yuborildi: *{}*\n❌ Xatolar: *{}*",
         "broadcast_sending": "📢 {} foydalanuvchiga yuborilmoqda...",
         "no_desc": "Tavsif mavjud emas",
-        "lang_ru": "🇷🇺 Русский",
-        "lang_uz": "🇺🇿 O'zbek",
         "choose_lang": "Tilni tanlang / Выбери язык:",
         "session_expired": "Sessiya tugadi, qaytadan qidiring",
-        "get_in_bot": "🤖 Botda olish",
+        "translating": "🔄 Tarjima qilinmoqda...",
     }
 }
 
-def t(user_id, key, *args):
+def tr(user_id, key, *args):
     lang = get_lang(user_id)
     text = TEXTS[lang].get(key, TEXTS["ru"].get(key, key))
     if args:
@@ -212,7 +159,6 @@ def get_menu(user_id):
 
 search_cache = {}
 
-# ===== БД =====
 def init_db():
     conn = sqlite3.connect("cinematrix.db")
     c = conn.cursor()
@@ -242,8 +188,7 @@ def add_user(user_id, username, first_name, invited_by=None):
         c.execute("INSERT INTO users (user_id, username, first_name, joined_at, last_active, invited_by, lang) VALUES (?, ?, ?, ?, ?, ?, 'ru')",
                   (user_id, username, first_name, now, now, invited_by))
         if invited_by:
-            c.execute("INSERT INTO referrals (inviter_id, invited_id, created_at) VALUES (?, ?, ?)",
-                      (invited_by, user_id, now))
+            c.execute("INSERT INTO referrals (inviter_id, invited_id, created_at) VALUES (?, ?, ?)", (invited_by, user_id, now))
             bonus = (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
             c.execute("UPDATE users SET bonus_until=? WHERE user_id=?", (bonus, invited_by))
     else:
@@ -266,8 +211,7 @@ def get_lang(user_id):
     return row[0] if row and row[0] else "ru"
 
 def get_tmdb_lang(user_id):
-    lang = get_lang(user_id)
-    return "uz-UZ" if lang == "uz" else "ru-RU"
+    return "ru-RU"
 
 def get_stats():
     conn = sqlite3.connect("cinematrix.db")
@@ -353,6 +297,25 @@ async def check_sub(user_id):
             not_subbed.append(ch)
     return not_subbed
 
+async def translate_to_uz(text):
+    if not text or len(text) < 10:
+        return text
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 500,
+                      "messages": [{"role": "user", "content": f"Translate this movie description to Uzbek language. Reply ONLY with the translation, nothing else:\n\n{text}"}]},
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as r:
+                data = await r.json()
+                if "content" in data:
+                    return data["content"][0]["text"].strip()
+                return text
+    except:
+        return text
+
 async def ai_find_movie(description):
     try:
         async with aiohttp.ClientSession() as session:
@@ -360,7 +323,7 @@ async def ai_find_movie(description):
                 "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                 json={"model": "claude-haiku-4-5-20251001", "max_tokens": 200,
-                      "messages": [{"role": "user", "content": f"What movie is this describing? Description: {description}. Reply with ONLY the English movie title. If you're not sure, suggest the 2-3 most likely movies separated by commas. If completely unknown, reply: unknown"}]},
+                      "messages": [{"role": "user", "content": f"What movie is this describing? Description: {description}. Reply with ONLY the English movie title. If not sure, give 2-3 most likely titles separated by commas. If unknown, reply: unknown"}]},
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as r:
                 data = await r.json()
@@ -371,11 +334,10 @@ async def ai_find_movie(description):
         print(f"AI error: {e}")
         return "unknown"
 
-async def search_movies_by_title(title, user_id):
-    lang = get_tmdb_lang(user_id)
+async def search_movies_by_title(title, user_id=None):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/search/movie",
-            params={"api_key": TMDB_API_KEY, "query": title, "language": lang}) as r:
+            params={"api_key": TMDB_API_KEY, "query": title, "language": "ru-RU"}) as r:
             data = await r.json()
     return data.get("results", [])[:5]
 
@@ -383,11 +345,11 @@ def movie_card_text(m, index, total, user_id):
     title = m.get("title", "—")
     year = (m.get("release_date", "") or "")[:4]
     rating = round(m.get("vote_average", 0) or 0, 1)
-    overview = (m.get("overview", "") or t(user_id, "no_desc"))[:200]
+    overview = (m.get("overview", "") or tr(user_id, "no_desc"))[:200]
     movie_id = m.get("id")
     return (
         f"🎬 *{title}* ({year})\n"
-        f"{t(user_id, 'rating', rating)}\n"
+        f"{tr(user_id, 'rating', rating)}\n"
         f"🆔 `{movie_id}`\n\n"
         f"📝 {overview}...\n\n"
         f"_{index}/{total}_"
@@ -399,19 +361,17 @@ def movie_card_keyboard(movies, index, source, user_id):
     total = len(movies)
     q = urllib.parse.quote(m.get("title", ""))
     fav = is_favorited(user_id, movie_id)
-
     nav = []
     if index > 0:
         nav.append(InlineKeyboardButton(text="◀️", callback_data=f"card:{source}:{index-1}"))
     nav.append(InlineKeyboardButton(text=f"{index+1}/{total}", callback_data="noop"))
     if index < total - 1:
         nav.append(InlineKeyboardButton(text="▶️", callback_data=f"card:{source}:{index+1}"))
-
     return InlineKeyboardMarkup(inline_keyboard=[
         nav,
         [
-            InlineKeyboardButton(text=t(user_id, "open_film"), callback_data=f"film:{movie_id}"),
-            InlineKeyboardButton(text=t(user_id, "unfav_btn" if fav else "fav_btn"), callback_data=f"fav:{movie_id}")
+            InlineKeyboardButton(text=tr(user_id, "open_film"), callback_data=f"film:{movie_id}"),
+            InlineKeyboardButton(text=tr(user_id, "unfav_btn" if fav else "fav_btn"), callback_data=f"fav:{movie_id}")
         ],
         [
             InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={q}"),
@@ -439,7 +399,6 @@ async def send_movie_card(message, movies, index, source, edit=False, user_id=No
         else:
             await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
-# ===== КОМАНДЫ =====
 @dp.message(Command("start"))
 async def start(message: types.Message):
     args = message.text.split()
@@ -448,22 +407,18 @@ async def start(message: types.Message):
         invited_by = int(args[1])
         if invited_by == message.from_user.id:
             invited_by = None
-
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, invited_by)
-
     if invited_by:
         ref_count = get_referral_count(invited_by)
         try:
-            await bot.send_message(invited_by, t(invited_by, "new_user", ref_count), parse_mode="Markdown")
+            await bot.send_message(invited_by, tr(invited_by, "new_user", ref_count), parse_mode="Markdown")
         except:
             pass
-
-    # Показываем выбор языка
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"),
         InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="lang:uz")
     ]])
-    await message.answer(t(message.from_user.id, "choose_lang"), reply_markup=kb)
+    await message.answer(tr(message.from_user.id, "choose_lang"), reply_markup=kb)
 
 @dp.message(Command("lang"))
 async def lang_cmd(message: types.Message):
@@ -471,23 +426,22 @@ async def lang_cmd(message: types.Message):
         InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"),
         InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="lang:uz")
     ]])
-    await message.answer(t(message.from_user.id, "choose_lang"), reply_markup=kb)
+    await message.answer(tr(message.from_user.id, "choose_lang"), reply_markup=kb)
 
 @dp.message(Command("stats"))
 async def stats(message: types.Message):
     total, today_active, total_requests, total_referrals = get_stats()
     ref_count = get_referral_count(message.from_user.id)
-    await message.answer(t(message.from_user.id, "stats", total, today_active, total_requests, total_referrals, ref_count), parse_mode="Markdown")
+    await message.answer(tr(message.from_user.id, "stats", total, today_active, total_requests, total_referrals, ref_count), parse_mode="Markdown")
 
 @dp.message(Command("admin"))
 async def admin_cmd(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer(t(message.from_user.id, "no_access"))
+        await message.answer(tr(message.from_user.id, "no_access"))
         return
     total, today_active, total_requests, total_referrals = get_stats()
     await message.answer(
-        f"👑 *Админ панель*\n\n"
-        f"👥 Пользователей: *{total}*\n🔥 Сегодня: *{today_active}*\n"
+        f"👑 *Админ панель*\n\n👥 Пользователей: *{total}*\n🔥 Сегодня: *{today_active}*\n"
         f"🔍 Запросов: *{total_requests}*\n🔗 Рефералов: *{total_referrals}*\n\n"
         f"📤 `/post 872585`\n📢 `/broadcast текст`",
         parse_mode="Markdown"
@@ -496,50 +450,50 @@ async def admin_cmd(message: types.Message):
 @dp.message(Command("post"))
 async def post_cmd(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer(t(message.from_user.id, "no_access"))
+        await message.answer(tr(message.from_user.id, "no_access"))
         return
     args = message.text.split()
     if len(args) < 2 or not args[1].isdigit():
         await message.answer("❌ Используй: `/post 872585`", parse_mode="Markdown")
         return
     movie_id = int(args[1])
-    await message.answer(t(message.from_user.id, "posting"))
+    await message.answer(tr(message.from_user.id, "posting"))
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
     if not m.get("title"):
-        await message.answer(t(message.from_user.id, "post_error"))
+        await message.answer(tr(message.from_user.id, "post_error"))
         return
     title = m.get("title", "—")
-    year = m.get("release_date", "")[:4]
-    rating = round(m.get("vote_average", 0), 1)
-    overview = m.get("overview", "")
+    year = (m.get("release_date", "") or "")[:4]
+    rating = round(m.get("vote_average", 0) or 0, 1)
+    overview = m.get("overview", "") or ""
     poster = m.get("poster_path", "")
     q = urllib.parse.quote(title)
     await post_to_channel(movie_id, title, year, rating, overview, poster, q)
-    await message.answer(t(message.from_user.id, "posted", title), parse_mode="Markdown")
+    await message.answer(tr(message.from_user.id, "posted", title), parse_mode="Markdown")
 
 @dp.message(Command("broadcast"))
 async def broadcast_cmd(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer(t(message.from_user.id, "no_access"))
+        await message.answer(tr(message.from_user.id, "no_access"))
         return
     text = message.text.replace("/broadcast", "").strip()
     if not text:
-        await message.answer(t(message.from_user.id, "broadcast_usage"), parse_mode="Markdown")
+        await message.answer(tr(message.from_user.id, "broadcast_usage"), parse_mode="Markdown")
         return
     users = get_all_users()
     sent = 0
     failed = 0
-    status = await message.answer(t(message.from_user.id, "broadcast_sending", len(users)))
-    for user_id in users:
+    status = await message.answer(tr(message.from_user.id, "broadcast_sending", len(users)))
+    for uid in users:
         try:
-            await bot.send_message(user_id, f"📢 *CINEMATRIX:*\n\n{text}", parse_mode="Markdown")
+            await bot.send_message(uid, f"📢 *CINEMATRIX:*\n\n{text}", parse_mode="Markdown")
             sent += 1
             await asyncio.sleep(0.05)
         except:
             failed += 1
-    await status.edit_text(t(message.from_user.id, "broadcast_done", sent, failed), parse_mode="Markdown")
+    await status.edit_text(tr(message.from_user.id, "broadcast_done", sent, failed), parse_mode="Markdown")
 
 @dp.message()
 async def handle(message: types.Message):
@@ -549,22 +503,31 @@ async def handle(message: types.Message):
     lang = get_lang(user_id)
     tx = TEXTS[lang]
 
-    if text in [tx["top"], "🔥 Топ фильмов", "🔥 Top filmlar"]:
+    menu_buttons = [
+        tx["top"], tx["new"], tx["upcoming"],
+        tx["favorites"], tx["quiz"], tx["invite"],
+        "🔥 Топ фильмов", "🆕 Новинки", "🎬 Скоро в кино",
+        "❤️ Избранное", "🎮 Квиз", "👥 Пригласить",
+        "🔥 Top filmlar", "🆕 Yangiliklar", "🎬 Tez chiqadi",
+        "❤️ Sevimlilar", "🎮 Viktorina", "👥 Taklif qilish"
+    ]
+
+    if text in ["🔥 Топ фильмов", "🔥 Top filmlar", tx["top"]]:
         await show_top(message)
         return
-    elif text in [tx["new"], "🆕 Новинки", "🆕 Yangiliklar"]:
+    elif text in ["🆕 Новинки", "🆕 Yangiliklar", tx["new"]]:
         await show_new(message)
         return
-    elif text in [tx["upcoming"], "🎬 Скоро в кино", "🎬 Tez chiqadi"]:
+    elif text in ["🎬 Скоро в кино", "🎬 Tez chiqadi", tx["upcoming"]]:
         await show_upcoming(message)
         return
-    elif text in [tx["favorites"], "❤️ Избранное", "❤️ Sevimlilar"]:
+    elif text in ["❤️ Избранное", "❤️ Sevimlilar", tx["favorites"]]:
         await show_favorites(message)
         return
-    elif text in [tx["quiz"], "🎮 Квиз", "🎮 Viktorina"]:
+    elif text in ["🎮 Квиз", "🎮 Viktorina", tx["quiz"]]:
         await start_quiz(message)
         return
-    elif text in [tx["invite"], "👥 Пригласить", "👥 Taklif qilish"]:
+    elif text in ["👥 Пригласить", "👥 Taklif qilish", tx["invite"]]:
         await show_invite(message)
         return
 
@@ -573,24 +536,22 @@ async def handle(message: types.Message):
         if not_subbed:
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
-            ] + [[InlineKeyboardButton(text=t(user_id, "check_sub"), callback_data=f"check:{text}")]])
-            await message.answer(t(user_id, "subscribe"), reply_markup=kb)
+            ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check:{text}")]])
+            await message.answer(tr(user_id, "subscribe"), reply_markup=kb)
         else:
             await show_film(message, int(text))
 
     elif len(text) > 20:
-        thinking = await message.answer(t(user_id, "ai_searching"))
+        thinking = await message.answer(tr(user_id, "ai_searching"))
         movie_title = await ai_find_movie(text)
         if movie_title.lower() == "unknown":
-            await thinking.edit_text(t(user_id, "ai_not_found"))
+            await thinking.edit_text(tr(user_id, "ai_not_found"))
             return
-        # AI может вернуть несколько вариантов
         titles = [t.strip() for t in movie_title.split(",")]
         all_movies = []
         for title_opt in titles[:3]:
             movies = await search_movies_by_title(title_opt, user_id)
             all_movies.extend(movies)
-        # Убираем дубликаты
         seen = set()
         unique = []
         for m in all_movies:
@@ -598,9 +559,9 @@ async def handle(message: types.Message):
                 seen.add(m["id"])
                 unique.append(m)
         if not unique:
-            await thinking.edit_text(t(user_id, "ai_no_result", movie_title), parse_mode="Markdown")
+            await thinking.edit_text(tr(user_id, "ai_no_result", movie_title), parse_mode="Markdown")
             return
-        await thinking.edit_text(t(user_id, "ai_found", titles[0]), parse_mode="Markdown")
+        await thinking.edit_text(tr(user_id, "ai_found", titles[0]), parse_mode="Markdown")
         search_cache[f"{user_id}_search"] = unique[:5]
         await send_movie_card(message, unique[:5], 0, f"{user_id}_search", user_id=user_id)
 
@@ -616,13 +577,13 @@ async def show_invite(message):
     user_id = message.from_user.id
     ref_count = get_referral_count(user_id)
     link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
-    await message.answer(t(user_id, "invite_text", link, ref_count), parse_mode="Markdown")
+    await message.answer(tr(user_id, "invite_text", link, ref_count), parse_mode="Markdown")
 
 async def show_favorites(message):
     user_id = message.from_user.id
     favs = get_favorites(user_id)
     if not favs:
-        await message.answer(t(user_id, "no_favorites"))
+        await message.answer(tr(user_id, "no_favorites"))
         return
     search_cache[f"{user_id}_fav"] = favs
     await send_movie_card(message, favs, 0, f"{user_id}_fav", user_id=user_id)
@@ -630,9 +591,8 @@ async def show_favorites(message):
 async def start_quiz(message):
     import random
     user_id = message.from_user.id
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])
     if not movies:
@@ -647,13 +607,12 @@ async def start_quiz(message):
     search_cache[f"quiz_{user_id}"] = {"answer": title, "movie_id": movie_id}
     buttons = [[InlineKeyboardButton(text=opt, callback_data=f"quiz:{opt}")] for opt in options]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer(t(user_id, "quiz_title", overview), parse_mode="Markdown", reply_markup=kb)
+    await message.answer(tr(user_id, "quiz_title", overview), parse_mode="Markdown", reply_markup=kb)
 
 async def show_top(message):
     user_id = message.from_user.id
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/popular", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
     search_cache[f"{user_id}_top"] = movies
@@ -661,9 +620,8 @@ async def show_top(message):
 
 async def show_new(message):
     user_id = message.from_user.id
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/now_playing", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/now_playing", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
     search_cache[f"{user_id}_new"] = movies
@@ -671,9 +629,8 @@ async def show_new(message):
 
 async def show_upcoming(message):
     user_id = message.from_user.id
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/upcoming", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/upcoming", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = data.get("results", [])[:10]
     search_cache[f"{user_id}_upcoming"] = movies
@@ -681,24 +638,22 @@ async def show_upcoming(message):
 
 async def search_person(message, query):
     user_id = message.from_user.id
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/search/person", params={"api_key": TMDB_API_KEY, "query": query, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/search/person", params={"api_key": TMDB_API_KEY, "query": query, "language": "ru-RU"}) as r:
             data = await r.json()
     results = data.get("results", [])
     if not results:
-        await message.answer(t(user_id, "not_found"), parse_mode="Markdown")
+        await message.answer(tr(user_id, "not_found"), parse_mode="Markdown")
         return
     person = results[0]
     person_id = person["id"]
     name = person.get("name", "—")
-    known_for = person.get("known_for_department", "—")
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/person/{person_id}/movie_credits", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/person/{person_id}/movie_credits", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             credits = await r.json()
     movies = sorted(credits.get("cast", []), key=lambda x: x.get("popularity", 0), reverse=True)[:8]
     search_cache[f"{user_id}_person"] = movies
-    await message.answer(t(user_id, "actor_movies", name), parse_mode="Markdown")
+    await message.answer(tr(user_id, "actor_movies", name), parse_mode="Markdown")
     await send_movie_card(message, movies, 0, f"{user_id}_person", user_id=user_id)
 
 async def post_to_channel(movie_id, title, year, rating, overview, poster, q):
@@ -720,33 +675,39 @@ async def post_to_channel(movie_id, title, year, rating, overview, poster, q):
 
 async def show_film(message, movie_id, post_channel=False):
     user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else ADMIN_ID
-    lang = get_tmdb_lang(user_id)
+    lang = get_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
     if not m.get("title"):
-        await message.answer(t(user_id, "film_not_found"))
+        await message.answer(tr(user_id, "film_not_found"))
         return
     title = m.get("title", "—")
     year = (m.get("release_date", "") or "")[:4]
     rating = round(m.get("vote_average", 0) or 0, 1)
-    overview = m.get("overview", "") or t(user_id, "no_desc")
+    overview = m.get("overview", "") or ""
     poster = m.get("poster_path", "")
     q = urllib.parse.quote(title)
-    fav = is_favorited(user_id, movie_id)
 
+    # Переводим описание на узбекский если нужно
+    if lang == "uz" and overview:
+        overview = await translate_to_uz(overview)
+    if not overview:
+        overview = tr(user_id, "no_desc")
+
+    fav = is_favorited(user_id, movie_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text=t(user_id, "similar"), callback_data=f"sim:{movie_id}"),
-            InlineKeyboardButton(text=t(user_id, "actors"), callback_data=f"cast:{movie_id}")
+            InlineKeyboardButton(text=tr(user_id, "similar"), callback_data=f"sim:{movie_id}"),
+            InlineKeyboardButton(text=tr(user_id, "actors"), callback_data=f"cast:{movie_id}")
         ],
-        [InlineKeyboardButton(text=t(user_id, "unfav_btn" if fav else "fav_btn"), callback_data=f"fav:{movie_id}")],
+        [InlineKeyboardButton(text=tr(user_id, "unfav_btn" if fav else "fav_btn"), callback_data=f"fav:{movie_id}")],
         [
             InlineKeyboardButton(text="▶️ Rezka", url=f"https://rezka.ag/search/?do=search&subaction=search&q={q}"),
             InlineKeyboardButton(text="📺 Kinogo", url=f"https://kinogo.is/?do=search&subaction=search&story={q}")
         ]
     ])
-    text = f"🎬 *{title}* ({year})\n\n{t(user_id, 'rating', rating)}\n\n📝 {overview}"
+    text = f"🎬 *{title}* ({year})\n\n{tr(user_id, 'rating', rating)}\n\n📝 {overview}"
     if poster:
         await message.answer_photo(f"https://image.tmdb.org/t/p/w500{poster}", caption=text, parse_mode="Markdown", reply_markup=kb)
     else:
@@ -754,20 +715,22 @@ async def show_film(message, movie_id, post_channel=False):
     if post_channel:
         await post_to_channel(movie_id, title, year, rating, overview, poster, q)
 
-# ===== CALLBACKS =====
 @dp.callback_query(lambda c: c.data.startswith("lang:"))
 async def lang_callback(callback: types.CallbackQuery):
     lang = callback.data.split(":")[1]
     user_id = callback.from_user.id
     set_lang(user_id, lang)
-    await callback.message.delete()
-
+    try:
+        await callback.message.delete()
+    except:
+        pass
     kb_mini = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🎬 " + ("Открыть CINEMATRIX" if lang == "ru" else "CINEMATRIX ni ochish"),
+        InlineKeyboardButton(
+            text="🎬 " + ("Открыть CINEMATRIX" if lang == "ru" else "CINEMATRIX ni ochish"),
             web_app=types.WebAppInfo(url="https://voluble-croissant-d09014.netlify.app"))
     ]])
-    await callback.message.answer(t(user_id, "welcome"), reply_markup=get_menu(user_id), parse_mode="Markdown")
-    await callback.message.answer(t(user_id, "choose_section"), reply_markup=kb_mini)
+    await callback.message.answer(tr(user_id, "welcome"), reply_markup=get_menu(user_id), parse_mode="Markdown")
+    await callback.message.answer(tr(user_id, "choose_section"), reply_markup=kb_mini)
     await callback.answer()
 
 @dp.callback_query(lambda c: c.data.startswith("quiz:"))
@@ -776,23 +739,23 @@ async def quiz_answer(callback: types.CallbackQuery):
     answer = callback.data.replace("quiz:", "")
     quiz_data = search_cache.get(f"quiz_{user_id}")
     if not quiz_data:
-        await callback.answer(t(user_id, "quiz_expired"), show_alert=True)
+        await callback.answer(tr(user_id, "quiz_expired"), show_alert=True)
         return
     correct = quiz_data["answer"]
     if answer == correct:
-        await callback.answer(t(user_id, "quiz_correct"), show_alert=True)
+        await callback.answer(tr(user_id, "quiz_correct"), show_alert=True)
         await callback.message.edit_reply_markup()
         movie_id = quiz_data["movie_id"]
         not_subbed = await check_sub(user_id)
         if not_subbed:
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
-            ] + [[InlineKeyboardButton(text=t(user_id, "check_sub"), callback_data=f"check:{movie_id}")]])
-            await callback.message.answer(t(user_id, "subscribe"), reply_markup=kb)
+            ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check:{movie_id}")]])
+            await callback.message.answer(tr(user_id, "subscribe"), reply_markup=kb)
         else:
             await show_film(callback.message, movie_id)
     else:
-        await callback.answer(t(user_id, "quiz_wrong", correct), show_alert=True)
+        await callback.answer(tr(user_id, "quiz_wrong", correct), show_alert=True)
 
 @dp.callback_query(lambda c: c.data.startswith("fav:"))
 async def fav_callback(callback: types.CallbackQuery):
@@ -800,13 +763,13 @@ async def fav_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if is_favorited(user_id, movie_id):
         remove_favorite(user_id, movie_id)
-        await callback.answer(t(user_id, "removed_fav"))
+        await callback.answer(tr(user_id, "removed_fav"))
     else:
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
                 m = await r.json()
         add_favorite(user_id, movie_id, m.get("title","—"), (m.get("release_date","") or "")[:4], round(m.get("vote_average",0) or 0,1), m.get("poster_path",""))
-        await callback.answer(t(user_id, "added_fav"))
+        await callback.answer(tr(user_id, "added_fav"))
 
 @dp.callback_query(lambda c: c.data.startswith("card:"))
 async def card_nav(callback: types.CallbackQuery):
@@ -815,7 +778,7 @@ async def card_nav(callback: types.CallbackQuery):
     index = int(parts[2])
     movies = search_cache.get(source)
     if not movies:
-        await callback.answer(t(callback.from_user.id, "session_expired"), show_alert=True)
+        await callback.answer(tr(callback.from_user.id, "session_expired"), show_alert=True)
         return
     await send_movie_card(callback.message, movies, index, source, edit=True, user_id=callback.from_user.id)
     await callback.answer()
@@ -832,8 +795,8 @@ async def film_callback(callback: types.CallbackQuery):
     if not_subbed:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
-        ] + [[InlineKeyboardButton(text=t(user_id, "check_sub"), callback_data=f"check:{movie_id}")]])
-        await callback.message.answer(t(user_id, "subscribe"), reply_markup=kb)
+        ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check:{movie_id}")]])
+        await callback.message.answer(tr(user_id, "subscribe"), reply_markup=kb)
     else:
         await show_film(callback.message, movie_id)
     await callback.answer()
@@ -844,7 +807,7 @@ async def check_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     not_subbed = await check_sub(user_id)
     if not_subbed:
-        await callback.answer(t(user_id, "not_subscribed"), show_alert=True)
+        await callback.answer(tr(user_id, "not_subscribed"), show_alert=True)
     else:
         await callback.message.delete()
         await show_film(callback.message, int(movie_id))
@@ -854,13 +817,12 @@ async def check_callback(callback: types.CallbackQuery):
 async def similar(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     movie_id = callback.data.split(":")[1]
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}/similar", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/{movie_id}/similar", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     results = data.get("results", [])[:5]
     if not results:
-        await callback.answer(t(user_id, "no_similar"), show_alert=True)
+        await callback.answer(tr(user_id, "no_similar"), show_alert=True)
         return
     search_cache[f"{user_id}_sim"] = results
     await send_movie_card(callback.message, results, 0, f"{user_id}_sim", user_id=user_id)
@@ -870,15 +832,14 @@ async def similar(callback: types.CallbackQuery):
 async def cast(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     movie_id = callback.data.split(":")[1]
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}/credits", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/movie/{movie_id}/credits", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     actors = data.get("cast", [])[:6]
     if not actors:
-        await callback.answer(t(user_id, "no_actors"), show_alert=True)
+        await callback.answer(tr(user_id, "no_actors"), show_alert=True)
         return
-    text = t(user_id, "actors_title")
+    text = tr(user_id, "actors_title")
     buttons = []
     for a in actors:
         name = a.get("name", "—")
@@ -894,16 +855,15 @@ async def cast(callback: types.CallbackQuery):
 async def person_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     person_id = callback.data.split(":")[1]
-    lang = get_tmdb_lang(user_id)
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/person/{person_id}/movie_credits", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/person/{person_id}/movie_credits", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             credits = await r.json()
-        async with session.get(f"{TMDB_URL}/person/{person_id}", params={"api_key": TMDB_API_KEY, "language": lang}) as r:
+        async with session.get(f"{TMDB_URL}/person/{person_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             person = await r.json()
     name = person.get("name", "—")
     movies = sorted(credits.get("cast", []), key=lambda x: x.get("popularity", 0), reverse=True)[:8]
     search_cache[f"{user_id}_person"] = movies
-    await callback.message.answer(t(user_id, "actor_movies", name), parse_mode="Markdown")
+    await callback.message.answer(tr(user_id, "actor_movies", name), parse_mode="Markdown")
     await send_movie_card(callback.message, movies, 0, f"{user_id}_person", user_id=user_id)
     await callback.answer()
 
