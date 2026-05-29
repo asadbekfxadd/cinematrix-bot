@@ -28,16 +28,17 @@ CHANNELS = [
 
 TEXTS = {
     "ru": {
-        "welcome": "🎬 Добро пожаловать в CINEMATRIX!\n\n📌 Как пользоваться:\n🔢 *ID фильма* — например: `572802`\n🔤 *Название* — например: `Интерстеллар`\n🎭 *Актёр* — например: `Tom Hanks`\n🤖 *Опиши сцену* — например: `фильм где человек застрял на острове`\n\nИспользуй кнопки внизу 👇",
+        "welcome": "🎬 Добро пожаловать в CINEMATRIX!\n\n📌 Как пользоваться:\n🔢 *ID фильма* — например: `572802`\n🔤 *Название* — например: `Интерстеллар`\n🎭 *Актёр* — например: `Tom Hanks`\n🤖 *Опиши сцену* — например: `фильм где человек застрял на острове`\n🎯 *Попроси совет* — например: `посоветуй фильм про зомби`\n\nИспользуй кнопки внизу 👇",
         "choose_section": "Выбери раздел:",
         "subscribe": "📢 Подпишись на канал и нажми кнопку!",
         "check_sub": "✅ Проверить подписку",
         "not_subscribed": "❌ Ты ещё не подписался!",
         "ai_searching": "🤖 AI ищет фильм по описанию...",
+        "ai_recommending": "🎯 AI подбирает фильмы для тебя...",
         "ai_found": "🤖 AI думает это *{}*!",
         "ai_not_found": "❌ AI не смог определить фильм. Попробуй подробнее!",
         "ai_no_result": "🤖 AI думает это *{}*, но не найдено.",
-        "not_found": "❌ Ничего не найдено.\n\nПопробуй:\n• ID: `572802`\n• Название: `Интерстеллар`\n• Актёр: `Tom Hanks`\n• Описание сцены",
+        "not_found": "❌ Ничего не найдено.\n\nПопробуй:\n• ID: `572802`\n• Название: `Интерстеллар`\n• Актёр: `Tom Hanks`\n• Описание сцены\n• `посоветуй фильм про зомби`",
         "film_not_found": "❌ Фильм не найден. Проверь ID.",
         "rating": "⭐ Рейтинг: {}/10",
         "similar": "🎬 Похожие",
@@ -52,6 +53,7 @@ TEXTS = {
         "favorites": "❤️ Избранное",
         "quiz": "🎮 Квиз",
         "invite": "👥 Пригласить",
+        "recommend": "🎯 Подобрать",
         "no_favorites": "❤️ У тебя пока нет избранных.\n\nНажми ❤️ под любым фильмом!",
         "added_fav": "❤️ Добавлено в избранное!",
         "removed_fav": "💔 Убрано из избранного",
@@ -77,18 +79,21 @@ TEXTS = {
         "session_expired": "Сессия истекла, повтори поиск",
         "morning_msg": "🌅 *Доброе утро!*\n\n🎬 Фильм дня:\n\n*{}* ({})\n⭐ Рейтинг: {}/10\n\n📝 {}\n\n🆔 Код: `{}`\n\nОткрой бота и введи код 👆",
         "resubscribe": "📢 Привет! Ты отписался от канала.\n\nЧтобы продолжить — подпишись снова:",
+        "recommend_prompt": "🎯 *Что посоветовать?*\n\nНапиши что хочешь посмотреть:\n\n• `фильмы про зомби`\n• `комедии для семьи`\n• `триллеры как Джокер`\n• `мультики для детей`\n• `боевики с Ван Даммом`",
+        "ai_recommend_result": "🎯 *AI подобрал для тебя:*\n\nЛистай карточки 👇",
     },
     "uz": {
-        "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n\nPastdagi tugmalardan foydalaning 👇",
+        "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n🎯 *Maslahat so'ra* — masalan: `zombi haqida film tavsiya qil`\n\nPastdagi tugmalardan foydalaning 👇",
         "choose_section": "Bo'limni tanlang:",
         "subscribe": "📢 Kanalga obuna bo'ling va tugmani bosing!",
         "check_sub": "✅ Obunani tekshirish",
         "not_subscribed": "❌ Siz hali obuna bo'lmagansiz!",
         "ai_searching": "🤖 AI filmni tavsif bo'yicha qidirmoqda...",
+        "ai_recommending": "🎯 AI siz uchun filmlar tanlamoqda...",
         "ai_found": "🤖 AI bu *{}* deb o'ylaydi!",
         "ai_not_found": "❌ AI filmni aniqlay olmadi. Batafsil tasvirlang!",
         "ai_no_result": "🤖 AI bu *{}* deb o'ylaydi, lekin topilmadi.",
-        "not_found": "❌ Hech narsa topilmadi.\n\nUrinib ko'ring:\n• ID: `572802`\n• Nomi: `Interstellar`\n• Aktyor: `Tom Hanks`\n• Sahna tavsifi",
+        "not_found": "❌ Hech narsa topilmadi.\n\nUrinib ko'ring:\n• ID: `572802`\n• Nomi: `Interstellar`\n• Aktyor: `Tom Hanks`\n• Sahna tavsifi\n• `zombi haqida film tavsiya qil`",
         "film_not_found": "❌ Film topilmadi. ID ni tekshiring.",
         "rating": "⭐ Reyting: {}/10",
         "similar": "🎬 O'xshash",
@@ -103,6 +108,7 @@ TEXTS = {
         "favorites": "❤️ Sevimlilar",
         "quiz": "🎮 Viktorina",
         "invite": "👥 Taklif qilish",
+        "recommend": "🎯 Tavsiya",
         "no_favorites": "❤️ Hali sevimli filmlaringiz yo'q.\n\nIstalgan film ostidagi ❤️ ni bosing!",
         "added_fav": "❤️ Sevimlilarga qo'shildi!",
         "removed_fav": "💔 Sevimlilardan olib tashlandi",
@@ -128,6 +134,8 @@ TEXTS = {
         "session_expired": "Sessiya tugadi, qaytadan qidiring",
         "morning_msg": "🌅 *Xayrli tong!*\n\n🎬 Kunning filmi:\n\n*{}* ({})\n⭐ Reyting: {}/10\n\n📝 {}\n\n🆔 Kod: `{}`\n\nBotni oching va kodni kiriting 👆",
         "resubscribe": "📢 Salom! Siz kanaldan obunani bekor qildingiz.\n\nBotdan foydalanishni davom ettirish uchun qayta obuna bo'ling:",
+        "recommend_prompt": "🎯 *Nima tavsiya qilay?*\n\nNimani ko'rmoqchi ekanligingizni yozing:\n\n• `zombi haqida filmlar`\n• `oilaviy komediyalar`\n• `Joker kabi trillerlar`\n• `bolalar uchun multfilmlar`\n• `Van Damm bilan boyeviklar`",
+        "ai_recommend_result": "🎯 *AI siz uchun tanladi:*\n\nKartochkalarni aylantiring 👇",
     }
 }
 
@@ -152,6 +160,8 @@ def get_menu(user_id):
         ], [
             KeyboardButton(text=tx["favorites"]),
             KeyboardButton(text=tx["quiz"]),
+            KeyboardButton(text=tx["recommend"])
+        ], [
             KeyboardButton(text=tx["invite"])
         ]],
         resize_keyboard=True,
@@ -332,12 +342,33 @@ async def ai_find_movie(description):
         print(f"AI error: {e}")
         return "unknown"
 
+async def ai_recommend(query):
+    """AI возвращает список названий фильмов по запросу пользователя"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 300,
+                      "messages": [{"role": "user", "content": f"User wants movie recommendations. Request: {query}\n\nReply with ONLY 5 English movie titles separated by commas. No explanations, no numbers, just titles. Example: The Dark Knight, Inception, Interstellar, Parasite, Joker"}]},
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as r:
+                data = await r.json()
+                if "content" in data:
+                    result = data["content"][0]["text"].strip()
+                    titles = [t.strip() for t in result.split(",")]
+                    return [t for t in titles if t and len(t) > 1][:5]
+                return []
+    except Exception as e:
+        print(f"AI recommend error: {e}")
+        return []
+
 async def search_movies_by_title(title, user_id=None):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/search/movie",
             params={"api_key": TMDB_API_KEY, "query": title, "language": "ru-RU"}) as r:
             data = await r.json()
-    return data.get("results", [])[:5]
+    return data.get("results", [])[:2]
 
 def movie_card_text(m, index, total, user_id):
     title = m.get("title", "—")
@@ -420,16 +451,16 @@ async def morning_broadcast():
             movie_id = movie.get("id")
             poster = movie.get("poster_path", "")
             users = get_all_users()
-            for user_id in users:
+            for uid in users:
                 try:
-                    msg = tr(user_id, "morning_msg", title, year, rating, overview, movie_id)
+                    msg = tr(uid, "morning_msg", title, year, rating, overview, movie_id)
                     kb = InlineKeyboardMarkup(inline_keyboard=[[
-                        InlineKeyboardButton(text=tr(user_id, "open_film"), callback_data=f"film:{movie_id}")
+                        InlineKeyboardButton(text=tr(uid, "open_film"), callback_data=f"film:{movie_id}")
                     ]])
                     if poster:
-                        await bot.send_photo(user_id, f"https://image.tmdb.org/t/p/w500{poster}", caption=msg, parse_mode="Markdown", reply_markup=kb)
+                        await bot.send_photo(uid, f"https://image.tmdb.org/t/p/w500{poster}", caption=msg, parse_mode="Markdown", reply_markup=kb)
                     else:
-                        await bot.send_message(user_id, msg, parse_mode="Markdown", reply_markup=kb)
+                        await bot.send_message(uid, msg, parse_mode="Markdown", reply_markup=kb)
                     await asyncio.sleep(0.05)
                 except:
                     pass
@@ -532,6 +563,15 @@ async def broadcast_cmd(message: types.Message):
             failed += 1
     await status.edit_text(tr(message.from_user.id, "broadcast_done", sent, failed), parse_mode="Markdown")
 
+# Ключевые слова для определения запроса на рекомендацию
+RECOMMEND_KEYWORDS_RU = ["посоветуй", "порекомендуй", "что посмотреть", "хочу посмотреть", "посоветовать", "рекомендуй", "подбери", "подскажи фильм", "какой фильм"]
+RECOMMEND_KEYWORDS_UZ = ["tavsiya", "maslahat", "ko'rmoqchi", "qanday film", "film tavsiya", "tavsiya qil", "koʻrmoqchi"]
+
+def is_recommend_request(text, lang):
+    text_lower = text.lower()
+    keywords = RECOMMEND_KEYWORDS_RU if lang == "ru" else RECOMMEND_KEYWORDS_UZ
+    return any(kw in text_lower for kw in keywords)
+
 @dp.message()
 async def handle(message: types.Message):
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
@@ -555,6 +595,9 @@ async def handle(message: types.Message):
     elif text in ["🎮 Квиз", "🎮 Viktorina", tx["quiz"]]:
         await start_quiz(message)
         return
+    elif text in ["🎯 Подобрать", "🎯 Tavsiya", tx["recommend"]]:
+        await message.answer(tr(user_id, "recommend_prompt"), parse_mode="Markdown")
+        return
     elif text in ["👥 Пригласить", "👥 Taklif qilish", tx["invite"]]:
         await show_invite(message)
         return
@@ -569,6 +612,31 @@ async def handle(message: types.Message):
 
     if text.isdigit():
         await show_film(message, int(text))
+
+    elif is_recommend_request(text, lang):
+        # Запрос на рекомендацию
+        thinking = await message.answer(tr(user_id, "ai_recommending"))
+        titles = await ai_recommend(text)
+        if not titles:
+            await thinking.edit_text(tr(user_id, "ai_not_found"))
+            return
+        all_movies = []
+        for title_opt in titles:
+            movies = await search_movies_by_title(title_opt, user_id)
+            all_movies.extend(movies)
+        seen = set()
+        unique = []
+        for m in all_movies:
+            if m["id"] not in seen:
+                seen.add(m["id"])
+                unique.append(m)
+        if not unique:
+            await thinking.edit_text(tr(user_id, "ai_not_found"))
+            return
+        await thinking.edit_text(tr(user_id, "ai_recommend_result"), parse_mode="Markdown")
+        search_cache[f"{user_id}_rec"] = unique[:5]
+        await send_movie_card(message, unique[:5], 0, f"{user_id}_rec", user_id=user_id)
+
     elif len(text) > 20:
         thinking = await message.answer(tr(user_id, "ai_searching"))
         movie_title = await ai_find_movie(text)
@@ -592,6 +660,7 @@ async def handle(message: types.Message):
         await thinking.edit_text(tr(user_id, "ai_found", titles[0]), parse_mode="Markdown")
         search_cache[f"{user_id}_search"] = unique[:5]
         await send_movie_card(message, unique[:5], 0, f"{user_id}_search", user_id=user_id)
+
     else:
         movies = await search_movies_by_title(text, user_id)
         if movies:
