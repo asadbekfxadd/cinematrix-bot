@@ -50,6 +50,8 @@ TEXTS = {
         "top": "🔥 Топ фильмов",
         "new": "🆕 Новинки",
         "upcoming": "🎬 Скоро в кино",
+        "uzbek": "🇺🇿 Узбек кино",
+        "imdb_top": "⭐ IMDb Топ",
         "favorites": "❤️ Избранное",
         "quiz": "🎮 Квиз",
         "invite": "👥 Пригласить",
@@ -81,6 +83,8 @@ TEXTS = {
         "resubscribe": "📢 Привет! Ты отписался от канала.\n\nЧтобы продолжить — подпишись снова:",
         "recommend_prompt": "🎯 *Что посоветовать?*\n\nНапиши что хочешь посмотреть:\n\n• `фильмы про зомби`\n• `комедии для семьи`\n• `триллеры как Джокер`\n• `мультики для детей`\n• `боевики с Ван Даммом`",
         "ai_recommend_result": "🎯 *AI подобрал для тебя:*\n\nЛистай карточки 👇",
+        "uzbek_films": "🇺🇿 *Узбекское кино:*\n\nЛистай карточки 👇",
+        "imdb_top_title": "⭐ *Топ IMDb всех времён:*\n\nЛистай карточки 👇",
     },
     "uz": {
         "welcome": "🎬 CINEMATRIX ga xush kelibsiz!\n\n📌 Qanday foydalanish:\n🔢 *Film ID* — masalan: `572802`\n🔤 *Nomi* — masalan: `Interstellar`\n🎭 *Aktyor* — masalan: `Tom Hanks`\n🤖 *Sahnani tasvirla* — masalan: `orol ustida qolgan odam haqida film`\n🎯 *Maslahat so'ra* — masalan: `zombi haqida film tavsiya qil`\n\nPastdagi tugmalardan foydalaning 👇",
@@ -105,6 +109,8 @@ TEXTS = {
         "top": "🔥 Top filmlar",
         "new": "🆕 Yangiliklar",
         "upcoming": "🎬 Tez chiqadi",
+        "uzbek": "🇺🇿 O'zbek kino",
+        "imdb_top": "⭐ IMDb Top",
         "favorites": "❤️ Sevimlilar",
         "quiz": "🎮 Viktorina",
         "invite": "👥 Taklif qilish",
@@ -136,6 +142,8 @@ TEXTS = {
         "resubscribe": "📢 Salom! Siz kanaldan obunani bekor qildingiz.\n\nBotdan foydalanishni davom ettirish uchun qayta obuna bo'ling:",
         "recommend_prompt": "🎯 *Nima tavsiya qilay?*\n\nNimani ko'rmoqchi ekanligingizni yozing:\n\n• `zombi haqida filmlar`\n• `oilaviy komediyalar`\n• `Joker kabi trillerlar`\n• `bolalar uchun multfilmlar`\n• `Van Damm bilan boyeviklar`",
         "ai_recommend_result": "🎯 *AI siz uchun tanladi:*\n\nKartochkalarni aylantiring 👇",
+        "uzbek_films": "🇺🇿 *O'zbek kinolari:*\n\nKartochkalarni aylantiring 👇",
+        "imdb_top_title": "⭐ *IMDb eng yaxshi filmlar:*\n\nKartochkalarni aylantiring 👇",
     }
 }
 
@@ -153,17 +161,11 @@ def get_menu(user_id):
     lang = get_lang(user_id)
     tx = TEXTS[lang]
     return ReplyKeyboardMarkup(
-        keyboard=[[
-            KeyboardButton(text=tx["top"]),
-            KeyboardButton(text=tx["new"]),
-            KeyboardButton(text=tx["upcoming"])
-        ], [
-            KeyboardButton(text=tx["favorites"]),
-            KeyboardButton(text=tx["quiz"]),
-            KeyboardButton(text=tx["recommend"])
-        ], [
-            KeyboardButton(text=tx["invite"])
-        ]],
+        keyboard=[
+            [KeyboardButton(text=tx["top"]), KeyboardButton(text=tx["new"]), KeyboardButton(text=tx["upcoming"])],
+            [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["imdb_top"]), KeyboardButton(text=tx["recommend"])],
+            [KeyboardButton(text=tx["favorites"]), KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["invite"])]
+        ],
         resize_keyboard=True,
         persistent=True
     )
@@ -343,14 +345,13 @@ async def ai_find_movie(description):
         return "unknown"
 
 async def ai_recommend(query):
-    """AI возвращает список названий фильмов по запросу пользователя"""
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                 json={"model": "claude-haiku-4-5-20251001", "max_tokens": 300,
-                      "messages": [{"role": "user", "content": f"User wants movie recommendations. Request: {query}\n\nReply with ONLY 5 English movie titles separated by commas. No explanations, no numbers, just titles. Example: The Dark Knight, Inception, Interstellar, Parasite, Joker"}]},
+                      "messages": [{"role": "user", "content": f"User wants movie recommendations. Request: {query}\n\nReply with ONLY 5 English movie titles separated by commas. No explanations, no numbers, just titles."}]},
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as r:
                 data = await r.json()
@@ -431,7 +432,7 @@ async def send_movie_card(message, movies, index, source, edit=False, user_id=No
 async def morning_broadcast():
     while True:
         now = datetime.now()
-        next_run = now.replace(hour=4, minute=0, second=0, microsecond=0)  # 09:00 Tashkent = 04:00 UTC
+        next_run = now.replace(hour=4, minute=0, second=0, microsecond=0)
         if now >= next_run:
             next_run += timedelta(days=1)
         await asyncio.sleep((next_run - now).total_seconds())
@@ -563,9 +564,8 @@ async def broadcast_cmd(message: types.Message):
             failed += 1
     await status.edit_text(tr(message.from_user.id, "broadcast_done", sent, failed), parse_mode="Markdown")
 
-# Ключевые слова для определения запроса на рекомендацию
-RECOMMEND_KEYWORDS_RU = ["посоветуй", "порекомендуй", "что посмотреть", "хочу посмотреть", "посоветовать", "рекомендуй", "подбери", "подскажи фильм", "какой фильм"]
-RECOMMEND_KEYWORDS_UZ = ["tavsiya", "maslahat", "ko'rmoqchi", "qanday film", "film tavsiya", "tavsiya qil", "koʻrmoqchi"]
+RECOMMEND_KEYWORDS_RU = ["посоветуй", "порекомендуй", "что посмотреть", "хочу посмотреть", "рекомендуй", "подбери", "подскажи фильм", "какой фильм"]
+RECOMMEND_KEYWORDS_UZ = ["tavsiya", "maslahat", "ko'rmoqchi", "qanday film", "film tavsiya", "tavsiya qil"]
 
 def is_recommend_request(text, lang):
     text_lower = text.lower()
@@ -581,26 +581,23 @@ async def handle(message: types.Message):
     tx = TEXTS[lang]
 
     if text in ["🔥 Топ фильмов", "🔥 Top filmlar", tx["top"]]:
-        await show_top(message)
-        return
+        await show_top(message); return
     elif text in ["🆕 Новинки", "🆕 Yangiliklar", tx["new"]]:
-        await show_new(message)
-        return
+        await show_new(message); return
     elif text in ["🎬 Скоро в кино", "🎬 Tez chiqadi", tx["upcoming"]]:
-        await show_upcoming(message)
-        return
+        await show_upcoming(message); return
+    elif text in ["🇺🇿 Узбек кино", "🇺🇿 O'zbek kino", tx["uzbek"]]:
+        await show_uzbek(message); return
+    elif text in ["⭐ IMDb Топ", "⭐ IMDb Top", tx["imdb_top"]]:
+        await show_imdb_top(message); return
     elif text in ["❤️ Избранное", "❤️ Sevimlilar", tx["favorites"]]:
-        await show_favorites(message)
-        return
+        await show_favorites(message); return
     elif text in ["🎮 Квиз", "🎮 Viktorina", tx["quiz"]]:
-        await start_quiz(message)
-        return
+        await start_quiz(message); return
     elif text in ["🎯 Подобрать", "🎯 Tavsiya", tx["recommend"]]:
-        await message.answer(tr(user_id, "recommend_prompt"), parse_mode="Markdown")
-        return
+        await message.answer(tr(user_id, "recommend_prompt"), parse_mode="Markdown"); return
     elif text in ["👥 Пригласить", "👥 Taklif qilish", tx["invite"]]:
-        await show_invite(message)
-        return
+        await show_invite(message); return
 
     not_subbed = await check_sub(user_id)
     if not_subbed:
@@ -612,14 +609,11 @@ async def handle(message: types.Message):
 
     if text.isdigit():
         await show_film(message, int(text))
-
     elif is_recommend_request(text, lang):
-        # Запрос на рекомендацию
         thinking = await message.answer(tr(user_id, "ai_recommending"))
         titles = await ai_recommend(text)
         if not titles:
-            await thinking.edit_text(tr(user_id, "ai_not_found"))
-            return
+            await thinking.edit_text(tr(user_id, "ai_not_found")); return
         all_movies = []
         for title_opt in titles:
             movies = await search_movies_by_title(title_opt, user_id)
@@ -628,21 +622,17 @@ async def handle(message: types.Message):
         unique = []
         for m in all_movies:
             if m["id"] not in seen:
-                seen.add(m["id"])
-                unique.append(m)
+                seen.add(m["id"]); unique.append(m)
         if not unique:
-            await thinking.edit_text(tr(user_id, "ai_not_found"))
-            return
+            await thinking.edit_text(tr(user_id, "ai_not_found")); return
         await thinking.edit_text(tr(user_id, "ai_recommend_result"), parse_mode="Markdown")
         search_cache[f"{user_id}_rec"] = unique[:5]
         await send_movie_card(message, unique[:5], 0, f"{user_id}_rec", user_id=user_id)
-
     elif len(text) > 20:
         thinking = await message.answer(tr(user_id, "ai_searching"))
         movie_title = await ai_find_movie(text)
         if movie_title.lower() == "unknown":
-            await thinking.edit_text(tr(user_id, "ai_not_found"))
-            return
+            await thinking.edit_text(tr(user_id, "ai_not_found")); return
         titles = [t.strip() for t in movie_title.split(",")]
         all_movies = []
         for title_opt in titles[:3]:
@@ -652,15 +642,12 @@ async def handle(message: types.Message):
         unique = []
         for m in all_movies:
             if m["id"] not in seen:
-                seen.add(m["id"])
-                unique.append(m)
+                seen.add(m["id"]); unique.append(m)
         if not unique:
-            await thinking.edit_text(tr(user_id, "ai_no_result", movie_title), parse_mode="Markdown")
-            return
+            await thinking.edit_text(tr(user_id, "ai_no_result", movie_title), parse_mode="Markdown"); return
         await thinking.edit_text(tr(user_id, "ai_found", titles[0]), parse_mode="Markdown")
         search_cache[f"{user_id}_search"] = unique[:5]
         await send_movie_card(message, unique[:5], 0, f"{user_id}_search", user_id=user_id)
-
     else:
         movies = await search_movies_by_title(text, user_id)
         if movies:
@@ -668,6 +655,41 @@ async def handle(message: types.Message):
             await send_movie_card(message, movies, 0, f"{user_id}_search", user_id=user_id)
         else:
             await search_person(message, text)
+
+async def show_uzbek(message):
+    user_id = message.from_user.id
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{TMDB_URL}/discover/movie",
+            params={
+                "api_key": TMDB_API_KEY,
+                "language": "ru-RU",
+                "with_origin_country": "UZ",
+                "sort_by": "popularity.desc",
+                "page": 1
+            }) as r:
+            data = await r.json()
+    movies = data.get("results", [])
+    if not movies:
+        # Если нет в TMDb — ищем по запросу
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{TMDB_URL}/search/movie",
+                params={"api_key": TMDB_API_KEY, "query": "uzbek film", "language": "ru-RU"}) as r:
+                data = await r.json()
+        movies = data.get("results", [])[:10]
+    search_cache[f"{user_id}_uzbek"] = movies[:10]
+    await message.answer(tr(user_id, "uzbek_films"), parse_mode="Markdown")
+    await send_movie_card(message, movies[:10], 0, f"{user_id}_uzbek", user_id=user_id)
+
+async def show_imdb_top(message):
+    user_id = message.from_user.id
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{TMDB_URL}/movie/top_rated",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU", "page": 1}) as r:
+            data = await r.json()
+    movies = data.get("results", [])[:10]
+    search_cache[f"{user_id}_imdb"] = movies
+    await message.answer(tr(user_id, "imdb_top_title"), parse_mode="Markdown")
+    await send_movie_card(message, movies, 0, f"{user_id}_imdb", user_id=user_id)
 
 async def show_invite(message):
     user_id = message.from_user.id
@@ -679,8 +701,7 @@ async def show_favorites(message):
     user_id = message.from_user.id
     favs = get_favorites(user_id)
     if not favs:
-        await message.answer(tr(user_id, "no_favorites"))
-        return
+        await message.answer(tr(user_id, "no_favorites")); return
     search_cache[f"{user_id}_fav"] = favs
     await send_movie_card(message, favs, 0, f"{user_id}_fav", user_id=user_id)
 
@@ -692,8 +713,7 @@ async def start_quiz(message):
             params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
     movies = [m for m in data.get("results", []) if m.get("overview")]
-    if not movies:
-        return
+    if not movies: return
     movie = random.choice(movies)
     title = movie.get("title", "—")
     overview = (movie.get("overview", "") or "")[:300]
@@ -743,8 +763,7 @@ async def search_person(message, query):
             data = await r.json()
     results = data.get("results", [])
     if not results:
-        await message.answer(tr(user_id, "not_found"), parse_mode="Markdown")
-        return
+        await message.answer(tr(user_id, "not_found"), parse_mode="Markdown"); return
     person = results[0]
     person_id = person["id"]
     name = person.get("name", "—")
@@ -780,8 +799,7 @@ async def show_film(message, movie_id, post_channel=False):
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
     if not m.get("title"):
-        await message.answer(tr(user_id, "film_not_found"))
-        return
+        await message.answer(tr(user_id, "film_not_found")); return
     title = m.get("title", "—")
     year = (m.get("release_date", "") or "")[:4]
     rating = round(m.get("vote_average", 0) or 0, 1)
@@ -847,8 +865,7 @@ async def quiz_answer(callback: types.CallbackQuery):
     answer = callback.data.replace("quiz:", "")
     quiz_data = search_cache.get(f"quiz_{user_id}")
     if not quiz_data:
-        await callback.answer(tr(user_id, "quiz_expired"), show_alert=True)
-        return
+        await callback.answer(tr(user_id, "quiz_expired"), show_alert=True); return
     correct = quiz_data["answer"]
     if answer == correct:
         await callback.answer(tr(user_id, "quiz_correct"), show_alert=True)
@@ -886,8 +903,7 @@ async def card_nav(callback: types.CallbackQuery):
     index = int(parts[2])
     movies = search_cache.get(source)
     if not movies:
-        await callback.answer(tr(callback.from_user.id, "session_expired"), show_alert=True)
-        return
+        await callback.answer(tr(callback.from_user.id, "session_expired"), show_alert=True); return
     await send_movie_card(callback.message, movies, index, source, edit=True, user_id=callback.from_user.id)
     await callback.answer()
 
@@ -930,8 +946,7 @@ async def similar(callback: types.CallbackQuery):
             data = await r.json()
     results = data.get("results", [])[:5]
     if not results:
-        await callback.answer(tr(user_id, "no_similar"), show_alert=True)
-        return
+        await callback.answer(tr(user_id, "no_similar"), show_alert=True); return
     search_cache[f"{user_id}_sim"] = results
     await send_movie_card(callback.message, results, 0, f"{user_id}_sim", user_id=user_id)
     await callback.answer()
@@ -945,8 +960,7 @@ async def cast(callback: types.CallbackQuery):
             data = await r.json()
     actors = data.get("cast", [])[:6]
     if not actors:
-        await callback.answer(tr(user_id, "no_actors"), show_alert=True)
-        return
+        await callback.answer(tr(user_id, "no_actors"), show_alert=True); return
     text = tr(user_id, "actors_title")
     buttons = []
     for a in actors:
