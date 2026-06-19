@@ -15,15 +15,18 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TMDB_URL = "https://api.themoviedb.org/3"
-CHANNEL = "@thebobodjonov"
+CHANNEL = "-1001199192573"
 ADMIN_ID = 6250747288
 BOT_USERNAME = "CINEMATR1X_BOT"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Добавляй сюда каналы — бот будет проверять подписку на все
 CHANNELS = [
-    {"name": "Бободжонов", "username": "@thebobodjonov", "url": "https://t.me/thebobodjonov"},
+    {"name": "Наш канал", "username": "-1001199192573", "url": "https://t.me/+-BKXmo8rQr8xMjgy"},
+    # {"name": "Второй канал", "username": "@channel2", "url": "https://t.me/channel2"},
+    # {"name": "Третий канал", "username": "@channel3", "url": "https://t.me/channel3"},
 ]
 
 TEXTS = {
