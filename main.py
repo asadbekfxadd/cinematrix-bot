@@ -163,8 +163,8 @@ def get_menu(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=tx["top"]), KeyboardButton(text=tx["new"]), KeyboardButton(text=tx["upcoming"])],
-            [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["imdb_top"]), KeyboardButton(text=tx["recommend"])],
-            [KeyboardButton(text=tx["favorites"]), KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["invite"])]
+            [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["favorites"]), KeyboardButton(text=tx["quiz"])],
+            [KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])]
         ],
         resize_keyboard=True,
         persistent=True
@@ -588,8 +588,7 @@ async def handle(message: types.Message):
         await show_upcoming(message); return
     elif text in ["🇺🇿 Узбек кино", "🇺🇿 O'zbek kino", tx["uzbek"]]:
         await show_uzbek(message); return
-    elif text in ["⭐ IMDb Топ", "⭐ IMDb Top", tx["imdb_top"]]:
-        await show_imdb_top(message); return
+
     elif text in ["❤️ Избранное", "❤️ Sevimlilar", tx["favorites"]]:
         await show_favorites(message); return
     elif text in ["🎮 Квиз", "🎮 Viktorina", tx["quiz"]]:
@@ -679,17 +678,6 @@ async def show_uzbek(message):
     search_cache[f"{user_id}_uzbek"] = movies[:10]
     await message.answer(tr(user_id, "uzbek_films"), parse_mode="Markdown")
     await send_movie_card(message, movies[:10], 0, f"{user_id}_uzbek", user_id=user_id)
-
-async def show_imdb_top(message):
-    user_id = message.from_user.id
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/top_rated",
-            params={"api_key": TMDB_API_KEY, "language": "ru-RU", "page": 1}) as r:
-            data = await r.json()
-    movies = data.get("results", [])[:10]
-    search_cache[f"{user_id}_imdb"] = movies
-    await message.answer(tr(user_id, "imdb_top_title"), parse_mode="Markdown")
-    await send_movie_card(message, movies, 0, f"{user_id}_imdb", user_id=user_id)
 
 async def show_invite(message):
     user_id = message.from_user.id
