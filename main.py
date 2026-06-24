@@ -16,7 +16,7 @@ TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TMDB_URL = "https://api.themoviedb.org/3"
 CHANNEL = "-1001199192573"
-ADMIN_ID = 6250747288
+ADMIN_IDS = [6250747288, 862911155]  # Список всех админов
 BOT_USERNAME = "CINEMATR1X_BOT"
 
 bot = Bot(token=BOT_TOKEN)
@@ -339,7 +339,7 @@ def delete_channel(username):
     return affected > 0
 
 async def check_sub(user_id):
-    if has_bonus(user_id) or user_id == ADMIN_ID:
+    if has_bonus(user_id) or user_id in ADMIN_IDS:
         return []
     not_subbed = []
     channels = get_channels()
@@ -550,7 +550,7 @@ async def stats(message: types.Message):
 
 @dp.message(Command("admin"))
 async def admin_cmd(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer(tr(message.from_user.id, "no_access"))
         return
     total, today_active, total_requests, total_referrals = get_stats()
@@ -566,7 +566,7 @@ async def admin_cmd(message: types.Message):
 
 @dp.message(Command("post"))
 async def post_cmd(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer(tr(message.from_user.id, "no_access"))
         return
     args = message.text.split()
@@ -592,7 +592,7 @@ async def post_cmd(message: types.Message):
 
 @dp.message(Command("channels"))
 async def list_channels(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ Нет доступа.")
         return
     channels = get_channels()
@@ -608,7 +608,7 @@ async def list_channels(message: types.Message):
 
 @dp.message(Command("addchannel"))
 async def add_channel_cmd(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ Нет доступа.")
         return
     args = message.text.replace("/addchannel", "").strip().split()
@@ -632,7 +632,7 @@ async def add_channel_cmd(message: types.Message):
 
 @dp.message(Command("removechannel"))
 async def remove_channel_cmd(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ Нет доступа.")
         return
     args = message.text.replace("/removechannel", "").strip()
@@ -646,7 +646,7 @@ async def remove_channel_cmd(message: types.Message):
 
 @dp.message(Command("broadcast"))
 async def broadcast_cmd(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer(tr(message.from_user.id, "no_access"))
         return
     text = message.text.replace("/broadcast", "").strip()
