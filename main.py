@@ -197,6 +197,14 @@ def init_db():
     c.execute("""CREATE TABLE IF NOT EXISTS referrals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         inviter_id INTEGER, invited_id INTEGER, created_at TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE, name TEXT, url TEXT)""")
+    # Добавляем канал по умолчанию если таблица пустая
+    existing = c.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+    if existing == 0:
+        c.execute("INSERT OR IGNORE INTO channels (username, name, url) VALUES (?, ?, ?)",
+                  ("-1001199192573", "Наш канал", "https://t.me/+-BKXmo8rQr8xMjgy"))
     conn.commit()
     conn.close()
 
@@ -302,11 +310,40 @@ def get_all_users():
     conn.close()
     return [r[0] for r in rows]
 
+def get_channels():
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    rows = c.execute("SELECT username, name, url FROM channels").fetchall()
+    conn.close()
+    return [{"username": r[0], "name": r[1], "url": r[2]} for r in rows]
+
+def add_channel(username, name, url):
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO channels (username, name, url) VALUES (?, ?, ?)", (username, name, url))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        conn.close()
+        return False
+
+def delete_channel(username):
+    conn = sqlite3.connect("cinematrix.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM channels WHERE username=?", (username,))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
 async def check_sub(user_id):
     if has_bonus(user_id) or user_id == ADMIN_ID:
         return []
     not_subbed = []
-    for ch in CHANNELS:
+    channels = get_channels()
+    for ch in channels:
         try:
             member = await bot.get_chat_member(ch["username"], user_id)
             if member.status in ["left", "kicked", "banned"]:
@@ -520,7 +557,10 @@ async def admin_cmd(message: types.Message):
     await message.answer(
         f"👑 *Админ панель*\n\n👥 Пользователей: *{total}*\n🔥 Сегодня: *{today_active}*\n"
         f"🔍 Запросов: *{total_requests}*\n🔗 Рефералов: *{total_referrals}*\n\n"
-        f"📤 `/post 872585`\n📢 `/broadcast текст`",
+        f"📤 `/post 872585`\n📢 `/broadcast текст`\n\n"
+        f"📋 `/channels` — список каналов\n"
+        f"➕ `/addchannel @ch Название`\n"
+        f"➖ `/removechannel @ch`",
         parse_mode="Markdown"
     )
 
@@ -549,6 +589,60 @@ async def post_cmd(message: types.Message):
     q = urllib.parse.quote(title)
     await post_to_channel(movie_id, title, year, rating, overview, poster, q)
     await message.answer(tr(message.from_user.id, "posted", title), parse_mode="Markdown")
+
+@dp.message(Command("channels"))
+async def list_channels(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Нет доступа.")
+        return
+    channels = get_channels()
+    if not channels:
+        await message.answer("📋 Каналов нет.")
+        return
+    text = "📋 *Список каналов для проверки подписки:*\n\n"
+    for i, ch in enumerate(channels, 1):
+        text += f"{i}. *{ch['name']}*\n`{ch['username']}`\n\n"
+    text += "➕ Добавить: `/addchannel @username Название`\n"
+    text += "➖ Удалить: `/removechannel @username`"
+    await message.answer(text, parse_mode="Markdown")
+
+@dp.message(Command("addchannel"))
+async def add_channel_cmd(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Нет доступа.")
+        return
+    args = message.text.replace("/addchannel", "").strip().split()
+    if len(args) < 2:
+        await message.answer(
+            "❌ Используй:\n`/addchannel @username Название`\n\nПример:\n`/addchannel @mychannel Мой канал`",
+            parse_mode="Markdown"
+        )
+        return
+    username = args[0]
+    name = " ".join(args[1:])
+    # Определяем URL
+    if username.startswith("@"):
+        url = f"https://t.me/{username[1:]}"
+    else:
+        url = f"https://t.me/joinchat/{username}"
+    if add_channel(username, name, url):
+        await message.answer(f"✅ Канал *{name}* (`{username}`) добавлен!", parse_mode="Markdown")
+    else:
+        await message.answer(f"❌ Канал `{username}` уже существует.", parse_mode="Markdown")
+
+@dp.message(Command("removechannel"))
+async def remove_channel_cmd(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Нет доступа.")
+        return
+    args = message.text.replace("/removechannel", "").strip()
+    if not args:
+        await message.answer("❌ Используй: `/removechannel @username`", parse_mode="Markdown")
+        return
+    if delete_channel(args):
+        await message.answer(f"✅ Канал `{args}` удалён!", parse_mode="Markdown")
+    else:
+        await message.answer(f"❌ Канал `{args}` не найден.", parse_mode="Markdown")
 
 @dp.message(Command("broadcast"))
 async def broadcast_cmd(message: types.Message):
