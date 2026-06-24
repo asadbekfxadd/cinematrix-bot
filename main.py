@@ -980,6 +980,21 @@ async def person_callback(callback: types.CallbackQuery):
     await send_movie_card(callback.message, movies, 0, f"{user_id}_person", user_id=user_id)
     await callback.answer()
 
+@dp.message(lambda m: m.web_app_data is not None)
+async def web_app_handler(message: types.Message):
+    user_id = message.from_user.id
+    add_user(user_id, message.from_user.username, message.from_user.first_name)
+    data = message.web_app_data.data.strip()
+    if data.isdigit():
+        not_subbed = await check_sub(user_id)
+        if not_subbed:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed
+            ] + [[InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=f"check:{data}")]])
+            await message.answer(tr(user_id, "subscribe"), reply_markup=kb)
+        else:
+            await show_film(message, int(data))
+
 async def main():
     init_db()
     asyncio.create_task(morning_broadcast())
