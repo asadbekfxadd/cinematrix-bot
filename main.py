@@ -171,7 +171,8 @@ def get_menu(user_id):
         keyboard=[
             [KeyboardButton(text=tx["top"]), KeyboardButton(text=tx["new"]), KeyboardButton(text=tx["upcoming"])],
             [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["tv_shows"]), KeyboardButton(text=tx["favorites"])],
-            [KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])]
+            [KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])],
+            [KeyboardButton(text="🎬 CINEMATRIX App", web_app=types.WebAppInfo(url="https://voluble-croissant-d09014.netlify.app"))]
         ],
         resize_keyboard=True,
         persistent=True
