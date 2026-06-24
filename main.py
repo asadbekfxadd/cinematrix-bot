@@ -87,6 +87,8 @@ TEXTS = {
         "recommend_prompt": "🎯 *Что посоветовать?*\n\nНапиши что хочешь посмотреть:\n\n• `фильмы про зомби`\n• `комедии для семьи`\n• `триллеры как Джокер`\n• `мультики для детей`\n• `боевики с Ван Даммом`",
         "ai_recommend_result": "🎯 *AI подобрал для тебя:*\n\nЛистай карточки 👇",
         "uzbek_films": "🇺🇿 *Узбекское кино:*\n\nЛистай карточки 👇",
+        "tv_shows": "📺 Сериалы",
+        "tv_top": "📺 *Топ сериалов:*\n\nЛистай карточки 👇",
         "imdb_top_title": "⭐ *Топ IMDb всех времён:*\n\nЛистай карточки 👇",
     },
     "uz": {
@@ -146,6 +148,8 @@ TEXTS = {
         "recommend_prompt": "🎯 *Nima tavsiya qilay?*\n\nNimani ko'rmoqchi ekanligingizni yozing:\n\n• `zombi haqida filmlar`\n• `oilaviy komediyalar`\n• `Joker kabi trillerlar`\n• `bolalar uchun multfilmlar`\n• `Van Damm bilan boyeviklar`",
         "ai_recommend_result": "🎯 *AI siz uchun tanladi:*\n\nKartochkalarni aylantiring 👇",
         "uzbek_films": "🇺🇿 *O'zbek kinolari:*\n\nKartochkalarni aylantiring 👇",
+        "tv_shows": "📺 Seriallar",
+        "tv_top": "📺 *Top seriallar:*\n\nKartochkalarni aylantiring 👇",
         "imdb_top_title": "⭐ *IMDb eng yaxshi filmlar:*\n\nKartochkalarni aylantiring 👇",
     }
 }
@@ -166,8 +170,8 @@ def get_menu(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=tx["top"]), KeyboardButton(text=tx["new"]), KeyboardButton(text=tx["upcoming"])],
-            [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["favorites"]), KeyboardButton(text=tx["quiz"])],
-            [KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])]
+            [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["tv_shows"]), KeyboardButton(text=tx["favorites"])],
+            [KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])]
         ],
         resize_keyboard=True,
         persistent=True
@@ -591,6 +595,8 @@ async def handle(message: types.Message):
         await show_upcoming(message); return
     elif text in ["🇺🇿 Узбек кино", "🇺🇿 O'zbek kino", tx["uzbek"]]:
         await show_uzbek(message); return
+    elif text in ["📺 Сериалы", "📺 Seriallar", tx["tv_shows"]]:
+        await show_tv(message); return
 
     elif text in ["❤️ Избранное", "❤️ Sevimlilar", tx["favorites"]]:
         await show_favorites(message); return
@@ -681,6 +687,22 @@ async def show_uzbek(message):
     search_cache[f"{user_id}_uzbek"] = movies[:10]
     await message.answer(tr(user_id, "uzbek_films"), parse_mode="Markdown")
     await send_movie_card(message, movies[:10], 0, f"{user_id}_uzbek", user_id=user_id)
+
+async def show_tv(message):
+    user_id = message.from_user.id
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{TMDB_URL}/tv/popular",
+            params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+            data = await r.json()
+    shows = data.get("results", [])[:10]
+    # Приводим к формату фильма
+    for s in shows:
+        s["title"] = s.get("name", "—")
+        s["release_date"] = s.get("first_air_date", "")
+        s["is_tv"] = True
+    search_cache[f"{user_id}_tv"] = shows
+    await message.answer(tr(user_id, "tv_top"), parse_mode="Markdown")
+    await send_movie_card(message, shows, 0, f"{user_id}_tv", user_id=user_id)
 
 async def show_invite(message):
     user_id = message.from_user.id
@@ -783,14 +805,25 @@ async def post_to_channel(movie_id, title, year, rating, overview, poster, q):
     except Exception as e:
         print(f"Ошибка постинга: {e}")
 
-async def show_film(message, movie_id, post_channel=False):
+async def show_film(message, movie_id, post_channel=False, is_tv=False):
     user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else ADMIN_ID
     lang = get_lang(user_id)
+    # Сначала пробуем как фильм
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
+    # Если не нашли — пробуем как сериал
     if not m.get("title"):
-        await message.answer(tr(user_id, "film_not_found")); return
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{TMDB_URL}/tv/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+                tv = await r.json()
+        if tv.get("name"):
+            m = tv
+            m["title"] = tv.get("name", "—")
+            m["release_date"] = tv.get("first_air_date", "")
+            is_tv = True
+        else:
+            await message.answer(tr(user_id, "film_not_found")); return
     title = m.get("title", "—")
     year = (m.get("release_date", "") or "")[:4]
     rating = round(m.get("vote_average", 0) or 0, 1)
@@ -932,9 +965,17 @@ async def check_callback(callback: types.CallbackQuery):
 async def similar(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     movie_id = callback.data.split(":")[1]
+    # Пробуем похожие фильмы и сериалы
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}/similar", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             data = await r.json()
+    if not data.get("results"):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{TMDB_URL}/tv/{movie_id}/similar", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+                data = await r.json()
+        for r in data.get("results", []):
+            r["title"] = r.get("name", "—")
+            r["release_date"] = r.get("first_air_date", "")
     results = data.get("results", [])[:5]
     if not results:
         await callback.answer(tr(user_id, "no_similar"), show_alert=True); return
