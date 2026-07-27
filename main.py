@@ -1065,7 +1065,7 @@ async def show_film(message, movie_id):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
-is_tv = False
+        is_tv = False
     if not m.get("title") or m.get("vote_count", 0) < 5:
         # Пробуем сериал
         async with aiohttp.ClientSession() as session:
