@@ -498,7 +498,7 @@ async def post_cmd(message: types.Message):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
-    if not m.get("title"):
+    if not m.get("title") or (m.get("vote_count", 0) < 5):
         await message.answer(tr(message.from_user.id, "post_error"))
         return
     title = m.get("title", "—")
@@ -710,7 +710,7 @@ async def show_film(message, movie_id, post_channel=False):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
             m = await r.json()
-    if not m.get("title"):
+    if not m.get("title") or (m.get("vote_count", 0) < 5):
         await message.answer(tr(user_id, "film_not_found"))
         return
     title = m.get("title", "—")
@@ -913,3 +913,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
