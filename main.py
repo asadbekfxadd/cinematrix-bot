@@ -547,7 +547,7 @@ async def send_card(message, movies, index, source, edit=False, user_id=None):
 async def morning_broadcast():
     while True:
         now = datetime.now()
-        next_run = now.replace(hour=4, minute=0, second=0, microsecond=0)
+        next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
         if now >= next_run:
             next_run += timedelta(days=1)
         await asyncio.sleep((next_run - now).total_seconds())
