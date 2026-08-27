@@ -91,6 +91,7 @@ TEXTS = {
         "ai_recommend_result": "🎯 *AI подобрал для тебя:*\n\nЛистай карточки 👇",
         "uzbek_films": "🇺🇿 *Узбекское кино:*\n\nЛистай карточки 👇",
         "tv_top": "📺 *Топ сериалов:*\n\nЛистай карточки 👇",
+        "pick_prompt": "🔎 Под кодом `{}` найдено два варианта.\n\nВы искали фильм или сериал?",
     },
     "uz": {
         "welcome": (
@@ -159,6 +160,7 @@ TEXTS = {
         "ai_recommend_result": "🎯 *AI siz uchun tanladi:*\n\nKartochkalarni aylantiring 👇",
         "uzbek_films": "🇺🇿 *O'zbek kinolari:*\n\nKartochkalarni aylantiring 👇",
         "tv_top": "📺 *Top seriallar:*\n\nKartochkalarni aylantiring 👇",
+        "pick_prompt": "🔎 `{}` kodi ostida ikkita variant topildi.\n\nSiz film yoki serial qidiryapsizmi?",
     }
 }
 
@@ -547,9 +549,15 @@ async def send_card(message, movies, index, source, edit=False, user_id=None):
 async def morning_broadcast():
     while True:
         now = datetime.now()
-        next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
+        # Случайное время в диапазоне 4:00–10:00 каждый день
+        rand_hour = random.randint(4, 9)
+        rand_minute = random.randint(0, 59)
+        next_run = now.replace(hour=rand_hour, minute=rand_minute, second=0, microsecond=0)
         if now >= next_run:
             next_run += timedelta(days=1)
+            rand_hour = random.randint(4, 9)
+            rand_minute = random.randint(0, 59)
+            next_run = next_run.replace(hour=rand_hour, minute=rand_minute)
         await asyncio.sleep((next_run - now).total_seconds())
         try:
             async with aiohttp.ClientSession() as session:
@@ -1058,27 +1066,11 @@ async def show_custom_film(message, film):
             pass
     await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
-async def show_film(message, movie_id):
+# ===== ПОКАЗ КАРТОЧКИ ФИЛЬМА/СЕРИАЛА =====
+async def render_film_card(message, m, movie_id, is_tv):
+    """Рисует карточку одного найденного фильма/сериала (когда тип уже определён)."""
     user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else ADMIN_IDS[0]
     lang = get_lang(user_id)
-    # Пробуем фильм
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
-            m = await r.json()
-    is_tv = False
-    if not m.get("title"):
-        # Пробуем сериал
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{TMDB_URL}/tv/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
-                tv = await r.json()
-        if tv.get("name"):
-            m = tv
-            m["title"] = tv.get("name", "—")
-            m["release_date"] = tv.get("first_air_date", "")
-            is_tv = True
-        else:
-            await message.answer(tr(user_id, "film_not_found")); return
-
     title = m.get("title", "—")
     year = (m.get("release_date", "") or "")[:4]
     rating = round(m.get("vote_average", 0) or 0, 1)
@@ -1110,7 +1102,67 @@ async def show_film(message, movie_id):
     else:
         await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
+async def show_film(message, movie_id):
+    """
+    Проверяет ОДНОВРЕМЕННО movie и tv с этим ID.
+    Если найдено и там, и там — предлагает пользователю выбрать нужный вариант.
+    Если найден только один вариант — сразу показывает его.
+    """
+    user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else ADMIN_IDS[0]
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{TMDB_URL}/movie/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+            movie_data = await r.json()
+        async with session.get(f"{TMDB_URL}/tv/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+            tv_data = await r.json()
+
+    has_movie = bool(movie_data.get("title"))
+    has_tv = bool(tv_data.get("name"))
+
+    if has_movie and has_tv:
+        movie_title = movie_data.get("title", "—")
+        movie_year = (movie_data.get("release_date", "") or "")[:4]
+        tv_title = tv_data.get("name", "—")
+        tv_year = (tv_data.get("first_air_date", "") or "")[:4]
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text=f"🎬 {movie_title} ({movie_year})", callback_data=f"pick:movie:{movie_id}"),
+            InlineKeyboardButton(text=f"📺 {tv_title} ({tv_year})", callback_data=f"pick:tv:{movie_id}")
+        ]])
+        await message.answer(
+            tr(user_id, "pick_prompt", movie_id),
+            parse_mode="Markdown", reply_markup=kb
+        )
+        return
+
+    if has_movie:
+        await render_film_card(message, movie_data, movie_id, is_tv=False)
+    elif has_tv:
+        tv_data["title"] = tv_data.get("name", "—")
+        tv_data["release_date"] = tv_data.get("first_air_date", "")
+        await render_film_card(message, tv_data, movie_id, is_tv=True)
+    else:
+        await message.answer(tr(user_id, "film_not_found"))
+
 # ===== CALLBACKS =====
+@dp.callback_query(lambda c: c.data.startswith("pick:"))
+async def pick_callback(callback: types.CallbackQuery):
+    _, kind, movie_id_str = callback.data.split(":")
+    movie_id = int(movie_id_str)
+    endpoint = "tv" if kind == "tv" else "movie"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{TMDB_URL}/{endpoint}/{movie_id}", params={"api_key": TMDB_API_KEY, "language": "ru-RU"}) as r:
+            m = await r.json()
+    is_tv = kind == "tv"
+    if is_tv:
+        m["title"] = m.get("name", "—")
+        m["release_date"] = m.get("first_air_date", "")
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await render_film_card(callback.message, m, movie_id, is_tv=is_tv)
+    await callback.answer()
+
 @dp.callback_query(lambda c: c.data.startswith("lang:"))
 async def lang_callback(callback: types.CallbackQuery):
     lang = callback.data.split(":")[1]
@@ -1296,3 +1348,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
