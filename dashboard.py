@@ -15,41 +15,125 @@ import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import Flask, render_template_string, jsonify, request, Response
+from flask import Flask, render_template_string, jsonify, request, redirect, make_response
 from dotenv import load_dotenv
 
 load_dotenv()
 
 DB_PATH = "filmix.db"
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin123")
+COOKIE_NAME = "filmix_dash_auth"
 
 app = Flask(__name__)
 
 
-# ===== ПРОСТАЯ ПАРОЛЬНАЯ ЗАЩИТА (HTTP Basic Auth) =====
-def check_auth(password):
-    return password == DASHBOARD_PASSWORD
+# ===== ПРОСТАЯ ПАРОЛЬНАЯ ЗАЩИТА (через форму + cookie) =====
+# Используем cookie вместо стандартного HTTP Basic Auth, потому что Basic Auth
+# не всегда автоматически повторно отправляется браузером при запросах через
+# JavaScript (fetch), из-за чего страница статистики зависала на "Загрузка...".
+# Cookie отправляется браузером автоматически при КАЖДОМ запросе к сайту — надёжнее.
 
-def authenticate():
-    return Response(
-        "Нужен пароль для доступа к панели.", 401,
-        {"WWW-Authenticate": 'Basic realm="FILMIX Dashboard"'}
-    )
+LOGIN_HTML = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FILMIX — Вход</title>
+<style>
+  body {
+    margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #0d0d12; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .box {
+    background: #16161d; border: 1px solid #26262f; border-radius: 14px;
+    padding: 32px; width: 300px; text-align: center;
+  }
+  h1 { color: #f5f5f7; font-size: 20px; margin: 0 0 20px 0; }
+  input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #26262f;
+    background: #0d0d12; color: #f5f5f7; font-size: 14px; margin-bottom: 12px; box-sizing: border-box;
+  }
+  button {
+    width: 100%; padding: 10px; border-radius: 8px; border: none;
+    background: #E50914; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .error { color: #E50914; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>🎬 FILMIX Dashboard</h1>
+    __ERROR__
+    <form method="POST" action="/login">
+      <input type="password" name="password" placeholder="Пароль" autofocus>
+      <button type="submit">Войти</button>
+    </form>
+  </div>
+</body>
+</html>
+"""
+
+
+def is_authed():
+    return request.cookies.get(COOKIE_NAME) == DASHBOARD_PASSWORD
+
 
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.password):
-            return authenticate()
+        if not is_authed():
+            # Для страниц — редирект на форму входа. Для API — просто ошибка 401.
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "not_authenticated"}), 401
+            return redirect("/login")
         return f(*args, **kwargs)
     return decorated
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if password == DASHBOARD_PASSWORD:
+            resp = make_response(redirect("/"))
+            resp.set_cookie(COOKIE_NAME, DASHBOARD_PASSWORD, max_age=60 * 60 * 24 * 30, httponly=True)
+            return resp
+        return LOGIN_HTML.replace("__ERROR__", '<div class="error">Неверный пароль</div>')
+    return LOGIN_HTML.replace("__ERROR__", "")
+
+
 # ===== РАБОТА С БАЗОЙ =====
+def ensure_tables(conn):
+    """Создаёт таблицы, если их ещё нет (например, бот ни разу не запускался
+    на этой машине). Не трогает данные, если таблицы уже существуют."""
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT,
+        joined_at TEXT, last_active TEXT, requests_count INTEGER DEFAULT 0,
+        invited_by INTEGER, bonus_until TEXT, lang TEXT DEFAULT 'ru')""")
+    c.execute("""CREATE TABLE IF NOT EXISTS favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER, movie_id INTEGER, title TEXT,
+        year TEXT, rating REAL, poster TEXT, added_at TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS referrals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inviter_id INTEGER, invited_id INTEGER, created_at TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE, name TEXT, url TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS custom_films (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE, title TEXT, year TEXT,
+        description TEXT, poster TEXT,
+        watch_url TEXT, added_at TEXT)""")
+    conn.commit()
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    ensure_tables(conn)
     return conn
 
 
@@ -288,8 +372,23 @@ DASHBOARD_HTML = """
 let growthChart, langChart;
 
 async function loadData() {
-  const res = await fetch('/api/stats');
-  const data = await res.json();
+  let res, data;
+  try {
+    res = await fetch('/api/stats');
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    data = await res.json();
+  } catch (e) {
+    document.getElementById('lastUpdated').textContent = 'Ошибка загрузки данных: ' + e;
+    return;
+  }
+  if (!res.ok) {
+    document.getElementById('lastUpdated').textContent =
+      'Ошибка сервера: ' + (data.error || res.status);
+    return;
+  }
 
   document.getElementById('lastUpdated').textContent =
     'Обновлено: ' + new Date().toLocaleTimeString('ru-RU');
@@ -386,19 +485,24 @@ def index():
 @app.route("/api/stats")
 @requires_auth
 def api_stats():
-    overview = get_overview_stats()
-    labels, values = get_growth_data(30)
-    return jsonify({
-        "overview": overview,
-        "growth": {"labels": labels, "values": values},
-        "top_favorites": get_top_favorites(10),
-        "top_referrers": get_top_referrers(10),
-        "top_active": get_top_active_users(10),
-    })
+    try:
+        overview = get_overview_stats()
+        labels, values = get_growth_data(30)
+        return jsonify({
+            "overview": overview,
+            "growth": {"labels": labels, "values": values},
+            "top_favorites": get_top_favorites(10),
+            "top_referrers": get_top_referrers(10),
+            "top_active": get_top_active_users(10),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("DASHBOARD_PORT", 5000))
+    # Railway сам назначает порт через переменную окружения PORT.
+    # Если её нет (например, тестируете локально на своём компьютере) — используем 5000.
+    port = int(os.getenv("PORT", os.getenv("DASHBOARD_PORT", 5000)))
     print(f"📊 FILMIX Dashboard запущен на порту {port}")
-    print(f"🔑 Пароль: {DASHBOARD_PASSWORD} (логин можно оставить пустым)")
+    print(f"🔑 Пароль: {DASHBOARD_PASSWORD}")
     app.run(host="0.0.0.0", port=port)
