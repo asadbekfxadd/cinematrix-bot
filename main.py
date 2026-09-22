@@ -1,7 +1,7 @@
 import asyncio
 import aiohttp
 import urllib.parse
-import sqlite3
+import psycopg2
 import os
 import random
 from datetime import datetime, timedelta
@@ -191,87 +191,97 @@ def get_menu(user_id):
 
 search_cache = {}
 
-# ===== БД =====
+# ===== БД (PostgreSQL) =====
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
+
 def init_db():
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT,
+        user_id BIGINT PRIMARY KEY, username TEXT, first_name TEXT,
         joined_at TEXT, last_active TEXT, requests_count INTEGER DEFAULT 0,
-        invited_by INTEGER, bonus_until TEXT, lang TEXT DEFAULT 'ru')""")
+        invited_by BIGINT, bonus_until TEXT, lang TEXT DEFAULT 'ru')""")
     c.execute("""CREATE TABLE IF NOT EXISTS favorites (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER, movie_id INTEGER, title TEXT,
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT, movie_id INTEGER, title TEXT,
         year TEXT, rating REAL, poster TEXT, added_at TEXT)""")
     c.execute("""CREATE TABLE IF NOT EXISTS referrals (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        inviter_id INTEGER, invited_id INTEGER, created_at TEXT)""")
+        id SERIAL PRIMARY KEY,
+        inviter_id BIGINT, invited_id BIGINT, created_at TEXT)""")
     c.execute("""CREATE TABLE IF NOT EXISTS channels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         username TEXT UNIQUE, name TEXT, url TEXT)""")
     c.execute("""CREATE TABLE IF NOT EXISTS custom_films (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         code TEXT UNIQUE, title TEXT, year TEXT,
         description TEXT, poster TEXT,
-        watch_url TEXT, added_at TEXT)""")
-    # Миграция: колонка для видео из канала
-    try:
-        c.execute("ALTER TABLE custom_films ADD COLUMN channel_message_id INTEGER")
-    except sqlite3.OperationalError:
-        pass  # колонка уже есть
+        watch_url TEXT, added_at TEXT,
+        channel_message_id INTEGER)""")
+    c.execute("ALTER TABLE custom_films ADD COLUMN IF NOT EXISTS channel_message_id INTEGER")
     # Дефолтный канал
-    if c.execute("SELECT COUNT(*) FROM channels").fetchone()[0] == 0:
-        c.execute("INSERT OR IGNORE INTO channels (username, name, url) VALUES (?, ?, ?)",
+    c.execute("SELECT COUNT(*) FROM channels")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO channels (username, name, url) VALUES (%s, %s, %s) ON CONFLICT (username) DO NOTHING",
                   ("-1001199192573", "FILMIX", "https://t.me/+-BKXmo8rQr8xMjgy"))
     conn.commit()
     conn.close()
 
 def add_user(user_id, username, first_name, invited_by=None):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    existing = c.execute("SELECT user_id FROM users WHERE user_id=?", (user_id,)).fetchone()
+    c.execute("SELECT user_id FROM users WHERE user_id=%s", (user_id,))
+    existing = c.fetchone()
     if not existing:
-        c.execute("INSERT INTO users (user_id, username, first_name, joined_at, last_active, invited_by, lang) VALUES (?, ?, ?, ?, ?, ?, 'ru')",
+        c.execute("INSERT INTO users (user_id, username, first_name, joined_at, last_active, invited_by, lang) VALUES (%s, %s, %s, %s, %s, %s, 'ru')",
                   (user_id, username, first_name, now, now, invited_by))
         if invited_by:
-            c.execute("INSERT INTO referrals (inviter_id, invited_id, created_at) VALUES (?, ?, ?)", (invited_by, user_id, now))
+            c.execute("INSERT INTO referrals (inviter_id, invited_id, created_at) VALUES (%s, %s, %s)", (invited_by, user_id, now))
             bonus = (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
-            c.execute("UPDATE users SET bonus_until=? WHERE user_id=?", (bonus, invited_by))
+            c.execute("UPDATE users SET bonus_until=%s WHERE user_id=%s", (bonus, invited_by))
     else:
-        c.execute("UPDATE users SET last_active=?, requests_count=requests_count+1 WHERE user_id=?", (now, user_id))
+        c.execute("UPDATE users SET last_active=%s, requests_count=requests_count+1 WHERE user_id=%s", (now, user_id))
     conn.commit()
     conn.close()
 
 def set_lang(user_id, lang):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET lang=? WHERE user_id=?", (lang, user_id))
+    c.execute("UPDATE users SET lang=%s WHERE user_id=%s", (lang, user_id))
     conn.commit()
     conn.close()
 
 def get_lang(user_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    row = c.execute("SELECT lang FROM users WHERE user_id=?", (user_id,)).fetchone()
+    c.execute("SELECT lang FROM users WHERE user_id=%s", (user_id,))
+    row = c.fetchone()
     conn.close()
     return row[0] if row and row[0] else "ru"
 
 def get_stats():
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    total = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM users")
+    total = c.fetchone()[0]
     today = datetime.now().strftime("%Y-%m-%d")
-    today_active = c.execute("SELECT COUNT(*) FROM users WHERE last_active LIKE ?", (f"{today}%",)).fetchone()[0]
-    total_requests = c.execute("SELECT SUM(requests_count) FROM users").fetchone()[0] or 0
-    total_referrals = c.execute("SELECT COUNT(*) FROM referrals").fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM users WHERE last_active LIKE %s", (f"{today}%",))
+    today_active = c.fetchone()[0]
+    c.execute("SELECT SUM(requests_count) FROM users")
+    total_requests = c.fetchone()[0] or 0
+    c.execute("SELECT COUNT(*) FROM referrals")
+    total_referrals = c.fetchone()[0]
     conn.close()
     return total, today_active, total_requests, total_referrals
 
 def has_bonus(user_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    row = c.execute("SELECT bonus_until FROM users WHERE user_id=?", (user_id,)).fetchone()
+    c.execute("SELECT bonus_until FROM users WHERE user_id=%s", (user_id,))
+    row = c.fetchone()
     conn.close()
     if row and row[0]:
         try:
@@ -281,60 +291,69 @@ def has_bonus(user_id):
     return False
 
 def get_referral_count(user_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    count = c.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id=?", (user_id,)).fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id=%s", (user_id,))
+    count = c.fetchone()[0]
     conn.close()
     return count
 
 def is_favorited(user_id, movie_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    row = c.execute("SELECT id FROM favorites WHERE user_id=? AND movie_id=?", (user_id, movie_id)).fetchone()
+    c.execute("SELECT id FROM favorites WHERE user_id=%s AND movie_id=%s", (user_id, movie_id))
+    row = c.fetchone()
     conn.close()
     return row is not None
 
 def add_favorite(user_id, movie_id, title, year, rating, poster):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    if c.execute("SELECT id FROM favorites WHERE user_id=? AND movie_id=?", (user_id, movie_id)).fetchone():
+    c.execute("SELECT id FROM favorites WHERE user_id=%s AND movie_id=%s", (user_id, movie_id))
+    if c.fetchone():
         conn.close()
         return False
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    c.execute("INSERT INTO favorites (user_id, movie_id, title, year, rating, poster, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    c.execute("INSERT INTO favorites (user_id, movie_id, title, year, rating, poster, added_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
               (user_id, movie_id, title, year, rating, poster, now))
     conn.commit()
     conn.close()
     return True
 
 def remove_favorite(user_id, movie_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM favorites WHERE user_id=? AND movie_id=?", (user_id, movie_id))
+    c.execute("DELETE FROM favorites WHERE user_id=%s AND movie_id=%s", (user_id, movie_id))
     conn.commit()
     conn.close()
 
 def get_favorites(user_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    rows = c.execute("SELECT movie_id, title, year, rating, poster FROM favorites WHERE user_id=? ORDER BY added_at DESC", (user_id,)).fetchall()
+    c.execute("SELECT movie_id, title, year, rating, poster FROM favorites WHERE user_id=%s ORDER BY added_at DESC", (user_id,))
+    rows = c.fetchall()
     conn.close()
     return [{"id": r[0], "title": r[1], "release_date": r[2], "vote_average": r[3], "poster_path": r[4]} for r in rows]
 
 def get_all_users():
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    rows = c.execute("SELECT user_id FROM users").fetchall()
+    c.execute("SELECT user_id FROM users")
+    rows = c.fetchall()
     conn.close()
     return [r[0] for r in rows]
 
 # ===== СВОЯ БАЗА ФИЛЬМОВ =====
 def add_custom_film(code, title, year, description, poster, watch_url):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     try:
-        c.execute("INSERT OR REPLACE INTO custom_films (code, title, year, description, poster, watch_url, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        c.execute("""INSERT INTO custom_films (code, title, year, description, poster, watch_url, added_at)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s)
+                     ON CONFLICT (code) DO UPDATE SET
+                        title=EXCLUDED.title, year=EXCLUDED.year, description=EXCLUDED.description,
+                        poster=EXCLUDED.poster, watch_url=EXCLUDED.watch_url, added_at=EXCLUDED.added_at""",
                   (str(code), title, year, description, poster, watch_url, now))
         conn.commit()
         conn.close()
@@ -344,60 +363,64 @@ def add_custom_film(code, title, year, description, poster, watch_url):
         return False
 
 def get_custom_film(code):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    row = c.execute("SELECT code, title, year, description, poster, watch_url, channel_message_id FROM custom_films WHERE code=?", (str(code),)).fetchone()
+    c.execute("SELECT code, title, year, description, poster, watch_url, channel_message_id FROM custom_films WHERE code=%s", (str(code),))
+    row = c.fetchone()
     conn.close()
     if row:
         return {"code": row[0], "title": row[1], "year": row[2], "description": row[3], "poster": row[4], "watch_url": row[5], "channel_message_id": row[6]}
     return None
 
 def set_film_video(code, channel_message_id):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE custom_films SET channel_message_id=? WHERE code=?", (channel_message_id, str(code)))
+    c.execute("UPDATE custom_films SET channel_message_id=%s WHERE code=%s", (channel_message_id, str(code)))
     affected = c.rowcount
     conn.commit()
     conn.close()
     return affected > 0
 
 def delete_custom_film(code):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM custom_films WHERE code=?", (str(code),))
+    c.execute("DELETE FROM custom_films WHERE code=%s", (str(code),))
     affected = c.rowcount
     conn.commit()
     conn.close()
     return affected > 0
 
 def get_all_custom_films():
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    rows = c.execute("SELECT code, title, year, watch_url FROM custom_films ORDER BY added_at DESC").fetchall()
+    c.execute("SELECT code, title, year, watch_url FROM custom_films ORDER BY added_at DESC")
+    rows = c.fetchall()
     conn.close()
     return rows
 
 def search_custom_films(query):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    rows = c.execute("SELECT code, title, year, description, poster, watch_url FROM custom_films WHERE title LIKE ?",
-                     (f"%{query}%",)).fetchall()
+    c.execute("SELECT code, title, year, description, poster, watch_url FROM custom_films WHERE title ILIKE %s",
+              (f"%{query}%",))
+    rows = c.fetchall()
     conn.close()
     return [{"code": r[0], "title": r[1], "year": r[2], "description": r[3], "poster": r[4], "watch_url": r[5]} for r in rows]
 
 # ===== КАНАЛЫ =====
 def get_channels():
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    rows = c.execute("SELECT username, name, url FROM channels").fetchall()
+    c.execute("SELECT username, name, url FROM channels")
+    rows = c.fetchall()
     conn.close()
     return [{"username": r[0], "name": r[1], "url": r[2]} for r in rows]
 
 def db_add_channel(username, name, url):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO channels (username, name, url) VALUES (?, ?, ?)", (username, name, url))
+        c.execute("INSERT INTO channels (username, name, url) VALUES (%s, %s, %s)", (username, name, url))
         conn.commit()
         conn.close()
         return True
@@ -406,9 +429,9 @@ def db_add_channel(username, name, url):
         return False
 
 def db_remove_channel(username):
-    conn = sqlite3.connect("filmix.db")
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM channels WHERE username=?", (username,))
+    c.execute("DELETE FROM channels WHERE username=%s", (username,))
     affected = c.rowcount
     conn.commit()
     conn.close()
