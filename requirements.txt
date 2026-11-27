@@ -1,5 +1,8 @@
 aiogram==3.28.2
 aiohttp
+asyncpg>=0.30
+cachetools>=5.5
 python-dotenv
+tzdata
 flask
 psycopg2-binary

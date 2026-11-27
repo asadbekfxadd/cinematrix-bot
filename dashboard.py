@@ -13,8 +13,11 @@ FILMIX — веб-панель: статистика + управление фи
   без необходимости лезть в бота командами.
 """
 
+import hashlib
+import hmac
 import os
-from datetime import datetime, timedelta
+from datetime import datetime as _dt, timedelta
+from zoneinfo import ZoneInfo
 from functools import wraps
 
 import psycopg2
@@ -27,6 +30,17 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin123")
 COOKIE_NAME = "filmix_dash_auth"
+# В куке хранится подпись, а не сам пароль. Смена пароля автоматически разлогинивает всех.
+AUTH_TOKEN = hmac.new(DASHBOARD_PASSWORD.encode(), b"filmix-dashboard", hashlib.sha256).hexdigest()
+_TZ = ZoneInfo("Asia/Tashkent")
+
+
+class datetime:  # noqa: N801 — время по Ташкенту, как в боте
+    @staticmethod
+    def now():
+        return _dt.now(_TZ).replace(tzinfo=None)
+
+    strptime = staticmethod(_dt.strptime)
 
 app = Flask(__name__)
 
@@ -75,7 +89,7 @@ LOGIN_HTML = """
 
 
 def is_authed():
-    return request.cookies.get(COOKIE_NAME) == DASHBOARD_PASSWORD
+    return hmac.compare_digest(request.cookies.get(COOKIE_NAME, ""), AUTH_TOKEN)
 
 
 def requires_auth(f):
@@ -93,9 +107,9 @@ def requires_auth(f):
 def login():
     if request.method == "POST":
         password = request.form.get("password", "")
-        if password == DASHBOARD_PASSWORD:
+        if hmac.compare_digest(password, DASHBOARD_PASSWORD):
             resp = make_response(redirect("/"))
-            resp.set_cookie(COOKIE_NAME, DASHBOARD_PASSWORD, max_age=60 * 60 * 24 * 30, httponly=True)
+            resp.set_cookie(COOKIE_NAME, AUTH_TOKEN, max_age=60 * 60 * 24 * 30, httponly=True, samesite="Lax")
             return resp
         return LOGIN_HTML.replace("__ERROR__", '<div class="error">Неверный пароль</div>')
     return LOGIN_HTML.replace("__ERROR__", "")
@@ -690,5 +704,6 @@ def api_films_delete(code):
 if __name__ == "__main__":
     port = int(os.getenv("DASHBOARD_PORT", 5000))
     print(f"📊 FILMIX Dashboard запущен на порту {port}")
-    print(f"🔑 Пароль: {DASHBOARD_PASSWORD}")
+    if DASHBOARD_PASSWORD == "admin123":
+        print("⚠️ Стоит пароль по умолчанию! Задай DASHBOARD_PASSWORD в Railway → Variables")
     app.run(host="0.0.0.0", port=port)
