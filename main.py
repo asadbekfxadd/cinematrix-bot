@@ -1301,7 +1301,7 @@ async def handle(message: Message):
     await search_person(message, uid, query=text)
 
 
-# ===== INLINE-РЕЖИМ: @Filmix_bot название — в любом чате =====
+# ===== INLINE-РЕЖИМ: @бот название — в любом чате =====
 @dp.inline_query()
 async def inline_search(query: InlineQuery):
     uid = query.from_user.id
@@ -1540,8 +1540,13 @@ async def on_error(event: ErrorEvent):
 
 # ===== ЗАПУСК =====
 async def main():
+    global BOT_USERNAME
     await db.init_db()
     await api.init_http()
+    # Юзернейм берём у Telegram, а не из настроек — так ссылки t.me/... всегда правильные
+    me = await bot.get_me()
+    BOT_USERNAME = me.username
+    log.info("Bot username: @%s", BOT_USERNAME)
     await bot.set_my_commands([
         BotCommand(command="start", description="Запуск / Boshlash"),
         BotCommand(command="lang", description="Язык / Til"),

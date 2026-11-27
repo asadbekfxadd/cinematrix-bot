@@ -33,7 +33,7 @@ SCAN_CHAT_ID = int(os.getenv("SCAN_CHAT_ID")) if os.getenv("SCAN_CHAT_ID") else 
 TMDB_URL = "https://api.themoviedb.org/3"
 TMDB_IMG = "https://image.tmdb.org/t/p/w500"
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://voluble-croissant-d09014.netlify.app")
-BOT_USERNAME = os.getenv("BOT_USERNAME", "Filmix_bot")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "CINEMATR1X_BOT")  # при старте берётся из get_me()
 
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "6250747288,862911155").split(",") if x.strip()]
 
