@@ -12,6 +12,7 @@ import asyncio
 import html
 import logging
 import random
+import re
 import urllib.parse
 from datetime import datetime, timedelta
 
@@ -19,7 +20,7 @@ from aiogram import BaseMiddleware, Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import (BotCommand, CallbackQuery, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup,
+from aiogram.types import (BotCommand, CallbackQuery, ChatMemberUpdated, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup,
                            InlineQuery, InlineQueryResultArticle, InputMediaPhoto, InputTextMessageContent,
                            KeyboardButton, LabeledPrice, LinkPreviewOptions, Message, PreCheckoutQuery,
                            ReplyKeyboardMarkup, WebAppInfo)
@@ -349,20 +350,41 @@ async def show_film(message: Message, user_id, movie_id, kind=None):
         await message.answer(tr(user_id, "film_not_found"))
 
 
+async def custom_film_buttons(user_id, film):
+    code, row = film["code"], []
+    if code.isdigit():
+        fav = await db.is_favorited(user_id, int(code))
+        row.append(InlineKeyboardButton(text=tr(user_id, "unfav_btn" if fav else "fav_btn"),
+                                        callback_data=f"fav:movie:{code}"))
+    row.append(InlineKeyboardButton(text=tr(user_id, "share"), switch_inline_query=film["title"] or code))
+    return row
+
+
+async def send_channel_video(user_id, film) -> bool:
+    """Копирует видео из канала пользователю (без подписи «переслано из»)."""
+    if not (film.get("channel_message_id") and VIDEO_CHANNEL_ID):
+        return False
+    try:
+        await bot.copy_message(user_id, VIDEO_CHANNEL_ID, film["channel_message_id"],
+                               protect_content=PROTECT_CONTENT,
+                               reply_markup=InlineKeyboardMarkup(inline_keyboard=[await custom_film_buttons(user_id, film)]))
+        return True
+    except TelegramBadRequest as e:
+        log.warning("copy video %s (msg %s) failed: %s", film["code"], film["channel_message_id"], e)
+        return False
+
+
 async def show_custom_film(message: Message, user_id, film):
+    # Есть видео в канале → сразу отдаём само видео
+    if await send_channel_video(user_id, film):
+        return
     code = film["code"]
     buttons = []
     if film.get("channel_message_id"):
         buttons.append([InlineKeyboardButton(text=tr(user_id, "watch_video"), callback_data=f"getvideo:{code}")])
     elif film.get("watch_url"):
         buttons.append([InlineKeyboardButton(text=tr(user_id, "watch"), url=film["watch_url"])])
-    row = []
-    if code.isdigit():
-        fav = await db.is_favorited(user_id, int(code))
-        row.append(InlineKeyboardButton(text=tr(user_id, "unfav_btn" if fav else "fav_btn"),
-                                        callback_data=f"fav:movie:{code}"))
-    row.append(InlineKeyboardButton(text=tr(user_id, "share"), switch_inline_query=film["title"] or code))
-    buttons.append(row)
+    buttons.append(await custom_film_buttons(user_id, film))
     text = (f"🎬 <b>{esc(film['title'])}</b> ({esc(film['year'])})\n\n"
             f"📝 {esc(film['description'] or tr(user_id, 'no_desc'))}\n\n🆔 Код: <code>{esc(code)}</code>")
     await answer_photo_or_text(message, film.get("poster"), text, InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -527,6 +549,8 @@ async def admin_cmd(message: Message):
         "➕ <code>/addfilm КОД | Название | Год | Описание | Постер | Ссылка</code>\n"
         "➖ <code>/deletefilm КОД</code> — удалить фильм\n"
         "🎥 <code>/addvideo КОД MESSAGE_ID</code> — привязать видео из канала\n"
+        "📥 Видео в канале добавляются сами (код из подписи «Код: 245» или автоматически).\n"
+        "   Старые посты — просто перешли их боту (можно пачкой).\n"
         "📋 <code>/myfilms</code> — список фильмов\n\n"
         "📋 <code>/channels</code> — каналы\n"
         "➕ <code>/addchannel @ch Название</code>\n"
@@ -854,15 +878,109 @@ async def givepremium_cmd(message: Message, command: CommandObject):
     await message.answer(f"✅ Premium для <code>{target}</code> до {fmt_date(until)}")
 
 
-@dp.message(F.video, F.forward_origin)
+# ===== АВТОЗАГРУЗКА ФИЛЬМОВ ИЗ КАНАЛА =====
+CODE_RE = re.compile(r"(?:код|kod|kodi|code)\s*[:№#\-]?\s*(\d{1,10})|#(\d{1,10})\b", re.IGNORECASE)
+YEAR_RE = re.compile(r"\b(19[2-9]\d|20[0-4]\d)\b")
+
+
+def parse_caption(caption: str):
+    """Из подписи поста: код, название (первая строка), год, описание.
+    Код ищется как «Код: 245», «Kod 245», «Code-245» или «#245»."""
+    caption = caption or ""
+    m = CODE_RE.search(caption)
+    code = (m.group(1) or m.group(2)) if m else None
+    lines = [ln.strip() for ln in caption.splitlines() if ln.strip()]
+    content = [ln for ln in lines if not CODE_RE.search(ln) or len(CODE_RE.sub("", ln).strip(" :-|•")) > 3]
+    title = ""
+    if content:
+        title = CODE_RE.sub("", content[0])
+        title = re.sub(r"^[^\w«\"(]+", "", title).strip(" :-|•")  # срезаем эмодзи в начале
+        title = YEAR_RE.sub("", title).strip(" ()[]-|•")
+    y = YEAR_RE.search(caption)
+    description = "\n".join(content[1:])[:700]
+    return code, title[:200], (y.group(1) if y else ""), description
+
+
+def is_video_post(msg: Message) -> bool:
+    if msg.video:
+        return True
+    doc = msg.document
+    return bool(doc and ((doc.mime_type or "").startswith("video/")
+                         or (doc.file_name or "").lower().endswith((".mp4", ".mkv", ".avi", ".mov", ".webm"))))
+
+
+def post_thumbnail(msg: Message) -> str:
+    media = msg.video or msg.document
+    thumb = getattr(media, "thumbnail", None)
+    return thumb.file_id if thumb else ""
+
+
+async def register_channel_post(msg: Message, message_id: int, caption: str, notify: bool = True):
+    code, title, year, description = parse_caption(caption)
+    existing = await db.get_film_by_message(message_id)
+    if not code:
+        code = existing["code"] if existing else await db.next_code()
+    if not title:
+        media = msg.video or msg.document
+        title = (getattr(media, "file_name", "") or "").rsplit(".", 1)[0] or f"Фильм {code}"
+    status = await db.upsert_channel_film(code, title, year, description, post_thumbnail(msg), message_id)
+    if notify:
+        icon = "✅ Добавлен" if status == "new" else "♻️ Обновлён"
+        text = (f"{icon} фильм из канала\n\n🎬 <b>{esc(title)}</b> {f'({esc(year)})' if year else ''}\n"
+                f"🆔 Код: <code>{esc(code)}</code>\n"
+                f"🔗 <code>https://t.me/{BOT_USERNAME}?start=c{esc(code)}</code>")
+        for admin in ADMIN_IDS:
+            await safe_send(admin, lambda a=admin: bot.send_message(a, text))
+    return code, title, status
+
+
+def is_video_channel(chat_id) -> bool:
+    return bool(VIDEO_CHANNEL_ID) and str(chat_id) == str(VIDEO_CHANNEL_ID)
+
+
+@dp.channel_post()
+async def on_channel_post(post: Message):
+    if is_video_channel(post.chat.id) and is_video_post(post):
+        await register_channel_post(post, post.message_id, post.caption or "")
+
+
+@dp.edited_channel_post()
+async def on_channel_post_edit(post: Message):
+    """Поменял подпись/код в посте — фильм в боте обновится."""
+    if is_video_channel(post.chat.id) and is_video_post(post):
+        await register_channel_post(post, post.message_id, post.caption or "")
+
+
+@dp.my_chat_member()
+async def on_bot_added(event: ChatMemberUpdated):
+    """Бота сделали админом канала — присылаем ID канала, чтобы не искать его вручную."""
+    if event.chat.type != "channel" or event.new_chat_member.status != "administrator":
+        return
+    hint = ("✅ Это и есть канал с фильмами." if is_video_channel(event.chat.id) else
+            f"Если это канал с фильмами — поставь в Railway → Variables:\n<code>VIDEO_CHANNEL_ID={event.chat.id}</code>")
+    for admin in ADMIN_IDS:
+        await safe_send(admin, lambda a=admin: bot.send_message(
+            a, f"📢 Меня сделали админом канала <b>{esc(event.chat.title)}</b>\nID: <code>{event.chat.id}</code>\n\n{hint}"))
+
+
+@dp.message(F.forward_origin, F.func(is_video_post))
 async def forwarded_video_handler(message: Message):
+    """Импорт старых постов: перешли боту видео из канала — оно добавится с кодом."""
     if not is_admin(message.from_user.id):
         return
-    msg_id = getattr(message.forward_origin, "message_id", None)
+    origin = message.forward_origin
+    msg_id = getattr(origin, "message_id", None)
+    chat = getattr(origin, "chat", None)
     if not msg_id:
-        return await message.answer("❌ Не удалось определить message_id. Узнай его вручную (ссылка на пост).")
+        return await message.answer("❌ Не удалось определить пост. Перешли видео прямо из канала.")
+    if chat and is_video_channel(chat.id):
+        code, title, status = await register_channel_post(message, msg_id, message.caption or "", notify=False)
+        icon = "✅" if status == "new" else "♻️"
+        return await message.answer(f"{icon} <b>{esc(title)}</b> → код <code>{esc(code)}</code>")
+    tip = (f"\n\nЧтобы видео из этого канала добавлялись сами, поставь <code>VIDEO_CHANNEL_ID={chat.id}</code>"
+           if chat else "")
     await message.answer(f"📹 message_id этого видео: <code>{msg_id}</code>\n\n"
-                         f"Привяжи к коду: <code>/addvideo КОД {msg_id}</code>")
+                         f"Привяжи к коду: <code>/addvideo КОД {msg_id}</code>{tip}")
 
 
 # ===== MINI APP (раньше этот хендлер не срабатывал — его перехватывал общий обработчик) =====

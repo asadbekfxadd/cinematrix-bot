@@ -313,3 +313,38 @@ async def ai_use(user_id: int) -> int:
         """INSERT INTO ai_usage (user_id, day, cnt) VALUES ($1, $2, 1)
            ON CONFLICT (user_id, day) DO UPDATE SET cnt = ai_usage.cnt + 1 RETURNING cnt""",
         user_id, now_local().date())
+
+
+# ===== ФИЛЬМЫ ИЗ КАНАЛА =====
+async def next_code() -> str:
+    """Следующий свободный числовой код (начинаем с 1001, чтобы коды были «солидными»)."""
+    n = await pool.fetchval("SELECT MAX(code::BIGINT) FROM custom_films WHERE code ~ '^[0-9]{1,15}$'")
+    return str(max((n or 0) + 1, 1001))
+
+
+async def get_film_by_message(channel_message_id: int):
+    return _film(await pool.fetchrow(
+        """SELECT code, title, year, description, poster, watch_url, channel_message_id
+           FROM custom_films WHERE channel_message_id=$1""", channel_message_id))
+
+
+async def upsert_channel_film(code, title, year, description, poster, channel_message_id) -> str:
+    """Создаёт/обновляет фильм из поста канала. Возвращает 'new' | 'updated'.
+    Если у поста уже был другой код — код меняется на новый."""
+    async with pool.acquire() as c, c.transaction():
+        old = await c.fetchval("SELECT code FROM custom_films WHERE channel_message_id=$1", channel_message_id)
+        if old and old != code:
+            if await c.fetchval("SELECT 1 FROM custom_films WHERE code=$1", code):
+                await c.execute("DELETE FROM custom_films WHERE code=$1", old)  # код уже занят — переносим пост туда
+            else:
+                await c.execute("UPDATE custom_films SET code=$1 WHERE code=$2", code, old)
+        existed = await c.fetchval("SELECT 1 FROM custom_films WHERE code=$1", code)
+        await c.execute(
+            """INSERT INTO custom_films (code, title, year, description, poster, watch_url, added_at, channel_message_id)
+               VALUES ($1, $2, $3, $4, $5, '', $6, $7)
+               ON CONFLICT (code) DO UPDATE SET title=EXCLUDED.title, year=EXCLUDED.year,
+                   description=EXCLUDED.description,
+                   poster=COALESCE(NULLIF(EXCLUDED.poster, ''), custom_films.poster),
+                   channel_message_id=EXCLUDED.channel_message_id""",
+            code, title, year, description, poster, now_str(), channel_message_id)
+    return "updated" if existed or old else "new"
