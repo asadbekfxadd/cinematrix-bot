@@ -25,6 +25,11 @@ PREMIUM_MONTH_STARS = int(os.getenv("PREMIUM_MONTH_STARS", "50"))   # подпи
 PREMIUM_WEEK_STARS = int(os.getenv("PREMIUM_WEEK_STARS", "15"))     # разово на 7 дней
 FREE_AI_PER_DAY = int(os.getenv("FREE_AI_PER_DAY", "20"))           # AI-запросов в день без Premium (0 = без лимита)
 
+# Своя подпись под видео (название, рейтинг, код, @бот) вместо подписи из канала
+OWN_CAPTION = os.getenv("OWN_CAPTION", "1") == "1"
+# Куда бот пересылает посты при /scan (по умолчанию — чат админа, копии сразу удаляются)
+SCAN_CHAT_ID = int(os.getenv("SCAN_CHAT_ID")) if os.getenv("SCAN_CHAT_ID") else None
+
 TMDB_URL = "https://api.themoviedb.org/3"
 TMDB_IMG = "https://image.tmdb.org/t/p/w500"
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://voluble-croissant-d09014.netlify.app")

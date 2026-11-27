@@ -1,7 +1,9 @@
 """Внешние API: TMDb и Claude. Одна HTTP-сессия на весь бот + кэши, чтобы не долбить API."""
 
+import difflib
 import json
 import logging
+import re
 
 import aiohttp
 from cachetools import LRUCache, TTLCache
@@ -117,3 +119,46 @@ async def ai_recommend(query: str):
     if not res:
         return []
     return [t.strip() for t in res.split(",") if t.strip()][:5]
+
+
+# ===== Распознавание фильма из подписи поста =====
+async def ai_extract_film(caption: str) -> dict | None:
+    """Claude вытаскивает из «грязной» подписи (реклама, хэштеги, ссылки) настоящее название и год."""
+    if not caption or len(caption.strip()) < 3:
+        return None
+    res = await claude(
+        "Below is a caption of a movie/series post from a Telegram channel (may contain ads, links, emojis, "
+        "Uzbek/Russian text). Identify the film. Reply ONLY with JSON: "
+        '{"title_en": "...", "title_ru": "...", "year": 2020, "type": "movie" or "tv"}. '
+        'Use null for unknown fields. If it is not a movie/series, reply {"title_en": null}.\n\n'
+        f"Caption:\n{caption[:1500]}", max_tokens=150)
+    if not res:
+        return None
+    m = re.search(r"\{.*\}", res, re.S)
+    try:
+        data = json.loads(m.group(0)) if m else None
+    except json.JSONDecodeError:
+        return None
+    return data if data and (data.get("title_en") or data.get("title_ru")) else None
+
+
+def _similar(a: str, b: str) -> float:
+    norm = lambda x: re.sub(r"[^\w]+", " ", (x or "").lower()).strip()
+    return difflib.SequenceMatcher(None, norm(a), norm(b)).ratio()
+
+
+async def match_tmdb(query: str, year=None, kind: str | None = None, min_score: float = 0.6) -> dict | None:
+    """Ищет фильм/сериал в TMDb и берёт результат, только если название реально похоже."""
+    if not query:
+        return None
+    best, best_score = None, 0.0
+    for k in ([kind] if kind in ("movie", "tv") else ["movie", "tv"]):
+        params = {"query": query}
+        if year:
+            params["primary_release_year" if k == "movie" else "first_air_date_year"] = str(year)
+        for item in (await tmdb(f"/search/{k}", **params)).get("results", [])[:5]:
+            names = [item.get("title"), item.get("original_title"), item.get("name"), item.get("original_name")]
+            score = max(_similar(query, n) for n in names if n) if any(names) else 0
+            if score > best_score:
+                best, best_score = (normalize_tv(dict(item)) if k == "tv" else dict(item)), score
+    return best if best_score >= min_score else None

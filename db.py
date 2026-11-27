@@ -41,6 +41,9 @@ async def init_db():
             watch_url TEXT, added_at TEXT,
             channel_message_id INTEGER)""")
         await c.execute("ALTER TABLE custom_films ADD COLUMN IF NOT EXISTS channel_message_id INTEGER")
+        await c.execute("ALTER TABLE custom_films ADD COLUMN IF NOT EXISTS tmdb_id INTEGER")
+        await c.execute("ALTER TABLE custom_films ADD COLUMN IF NOT EXISTS rating REAL")
+        await c.execute("CREATE INDEX IF NOT EXISTS idx_films_msg ON custom_films (channel_message_id)")
         await c.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
         await c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP")
         await c.execute("""CREATE TABLE IF NOT EXISTS payments (
@@ -202,7 +205,7 @@ async def add_custom_film(code, title, year, description, poster, watch_url) -> 
 
 async def get_custom_film(code):
     return _film(await pool.fetchrow(
-        """SELECT code, title, year, description, poster, watch_url, channel_message_id
+        """SELECT code, title, year, description, poster, watch_url, channel_message_id, tmdb_id, rating
            FROM custom_films WHERE code=$1""", str(code)))
 
 
@@ -223,7 +226,7 @@ async def get_all_custom_films():
 
 async def search_custom_films(query: str, limit: int = 10):
     rows = await pool.fetch(
-        """SELECT code, title, year, description, poster, watch_url, channel_message_id
+        """SELECT code, title, year, description, poster, watch_url, channel_message_id, tmdb_id, rating
            FROM custom_films WHERE title ILIKE $1 ORDER BY added_at DESC LIMIT $2""",
         f"%{query}%", limit)
     return [dict(r) for r in rows]
@@ -324,11 +327,12 @@ async def next_code() -> str:
 
 async def get_film_by_message(channel_message_id: int):
     return _film(await pool.fetchrow(
-        """SELECT code, title, year, description, poster, watch_url, channel_message_id
+        """SELECT code, title, year, description, poster, watch_url, channel_message_id, tmdb_id, rating
            FROM custom_films WHERE channel_message_id=$1""", channel_message_id))
 
 
-async def upsert_channel_film(code, title, year, description, poster, channel_message_id) -> str:
+async def upsert_channel_film(code, title, year, description, poster, channel_message_id,
+                              tmdb_id=None, rating=None) -> str:
     """Создаёт/обновляет фильм из поста канала. Возвращает 'new' | 'updated'.
     Если у поста уже был другой код — код меняется на новый."""
     async with pool.acquire() as c, c.transaction():
@@ -340,11 +344,14 @@ async def upsert_channel_film(code, title, year, description, poster, channel_me
                 await c.execute("UPDATE custom_films SET code=$1 WHERE code=$2", code, old)
         existed = await c.fetchval("SELECT 1 FROM custom_films WHERE code=$1", code)
         await c.execute(
-            """INSERT INTO custom_films (code, title, year, description, poster, watch_url, added_at, channel_message_id)
-               VALUES ($1, $2, $3, $4, $5, '', $6, $7)
+            """INSERT INTO custom_films (code, title, year, description, poster, watch_url, added_at,
+                                         channel_message_id, tmdb_id, rating)
+               VALUES ($1, $2, $3, $4, $5, '', $6, $7, $8, $9)
                ON CONFLICT (code) DO UPDATE SET title=EXCLUDED.title, year=EXCLUDED.year,
                    description=EXCLUDED.description,
                    poster=COALESCE(NULLIF(EXCLUDED.poster, ''), custom_films.poster),
-                   channel_message_id=EXCLUDED.channel_message_id""",
-            code, title, year, description, poster, now_str(), channel_message_id)
+                   channel_message_id=EXCLUDED.channel_message_id,
+                   tmdb_id=COALESCE(EXCLUDED.tmdb_id, custom_films.tmdb_id),
+                   rating=COALESCE(EXCLUDED.rating, custom_films.rating)""",
+            code, title, year, description, poster, now_str(), channel_message_id, tmdb_id, rating)
     return "updated" if existed or old else "new"

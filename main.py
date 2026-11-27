@@ -29,7 +29,8 @@ from cachetools import TTLCache
 import db
 import services as api
 from config import (ADMIN_IDS, BOT_TOKEN, BOT_USERNAME, FREE_AI_PER_DAY, MINI_APP_URL, MORNING_FROM_HOUR,
-                    MORNING_TO_HOUR, PREMIUM_MONTH_STARS, PREMIUM_WEEK_STARS, PROTECT_CONTENT, TMDB_IMG, TZ,
+                    MORNING_TO_HOUR, PREMIUM_MONTH_STARS, PREMIUM_WEEK_STARS,
+                    OWN_CAPTION, PROTECT_CONTENT, SCAN_CHAT_ID, TMDB_IMG, TZ,
                     VIDEO_CHANNEL_ID, now_local)
 from texts import TEXTS
 
@@ -360,12 +361,24 @@ async def custom_film_buttons(user_id, film):
     return row
 
 
+def film_caption(user_id, film) -> str:
+    """Своя подпись под видео вместо подписи из канала (чужая реклама не уходит пользователю)."""
+    parts = [f"🎬 <b>{esc(film['title'])}</b>" + (f" ({esc(film['year'])})" if film.get("year") else "")]
+    if film.get("rating"):
+        parts.append(tr(user_id, "rating", round(float(film["rating"]), 1)))
+    if film.get("description"):
+        parts.append(f"\n📝 {esc(film['description'][:400])}")
+    parts.append(f"\n🆔 Код: <code>{esc(film['code'])}</code>\n🍿 @{BOT_USERNAME}")
+    return "\n".join(parts)[:1024]
+
+
 async def send_channel_video(user_id, film) -> bool:
     """Копирует видео из канала пользователю (без подписи «переслано из»)."""
     if not (film.get("channel_message_id") and VIDEO_CHANNEL_ID):
         return False
     try:
         await bot.copy_message(user_id, VIDEO_CHANNEL_ID, film["channel_message_id"],
+                               caption=film_caption(user_id, film) if OWN_CAPTION else None,
                                protect_content=PROTECT_CONTENT,
                                reply_markup=InlineKeyboardMarkup(inline_keyboard=[await custom_film_buttons(user_id, film)]))
         return True
@@ -551,6 +564,9 @@ async def admin_cmd(message: Message):
         "🎥 <code>/addvideo КОД MESSAGE_ID</code> — привязать видео из канала\n"
         "📥 Видео в канале добавляются сами (код из подписи «Код: 245» или автоматически).\n"
         "   Старые посты — просто перешли их боту (можно пачкой).\n"
+        "🔄 <code>/scan</code> — пройти ВЕСЬ канал и добавить все фильмы с новыми кодами\n"
+        "   <code>/scan 100 500</code> — только посты 100–500 · <code>/scan keep</code> — коды из подписей\n"
+        "   <code>/scan continue</code> · <code>/scan stop</code> · <code>/scan status</code>\n"
         "📋 <code>/myfilms</code> — список фильмов\n\n"
         "📋 <code>/channels</code> — каналы\n"
         "➕ <code>/addchannel @ch Название</code>\n"
@@ -880,6 +896,7 @@ async def givepremium_cmd(message: Message, command: CommandObject):
 
 # ===== АВТОЗАГРУЗКА ФИЛЬМОВ ИЗ КАНАЛА =====
 CODE_RE = re.compile(r"(?:код|kod|kodi|code)\s*[:№#\-]?\s*(\d{1,10})|#(\d{1,10})\b", re.IGNORECASE)
+AD_RE = re.compile(r"(https?://|t\.me/|@\w{4,}|telegram\.me)", re.IGNORECASE)
 YEAR_RE = re.compile(r"\b(19[2-9]\d|20[0-4]\d)\b")
 
 
@@ -890,6 +907,8 @@ def parse_caption(caption: str):
     m = CODE_RE.search(caption)
     code = (m.group(1) or m.group(2)) if m else None
     lines = [ln.strip() for ln in caption.splitlines() if ln.strip()]
+    # выкидываем рекламные строки: ссылки, @каналы, строки из одних хэштегов
+    lines = [ln for ln in lines if not AD_RE.search(ln) and not re.fullmatch(r"(#\w+\s*)+", ln)]
     content = [ln for ln in lines if not CODE_RE.search(ln) or len(CODE_RE.sub("", ln).strip(" :-|•")) > 3]
     title = ""
     if content:
@@ -915,15 +934,43 @@ def post_thumbnail(msg: Message) -> str:
     return thumb.file_id if thumb else ""
 
 
-async def register_channel_post(msg: Message, message_id: int, caption: str, notify: bool = True):
+async def enrich_film(title, year, caption):
+    """AI чистит подпись → ищем фильм в TMDb → берём нормальное название, постер, рейтинг, описание (RU)."""
+    info = await api.ai_extract_film(caption) if caption else None
+    kind = (info or {}).get("type")
+    y = (info or {}).get("year") or year or None
+    queries = [q for q in [(info or {}).get("title_en"), (info or {}).get("title_ru"), title] if q]
+    for q in dict.fromkeys(queries):
+        for yr in ([y, None] if y else [None]):
+            m = await api.match_tmdb(q, yr, kind)
+            if m:
+                return m
+    return None
+
+
+async def register_channel_post(msg: Message, message_id: int, caption: str, notify: bool = True,
+                                new_code: bool = False, enrich: bool = True):
+    """new_code=True — код из подписи игнорируется, выдаётся свой свободный (для импорта чужих постов)."""
     code, title, year, description = parse_caption(caption)
     existing = await db.get_film_by_message(message_id)
+    if new_code:
+        code = None
     if not code:
         code = existing["code"] if existing else await db.next_code()
     if not title:
         media = msg.video or msg.document
-        title = (getattr(media, "file_name", "") or "").rsplit(".", 1)[0] or f"Фильм {code}"
-    status = await db.upsert_channel_film(code, title, year, description, post_thumbnail(msg), message_id)
+        title = (getattr(media, "file_name", "") or "").rsplit(".", 1)[0].replace("_", " ").replace(".", " ")
+    poster, tmdb_id, rating = post_thumbnail(msg), None, None
+    if enrich:
+        m = await enrich_film(title, year, caption or title)
+        if m:
+            title = m.get("title") or title
+            year = year_of(m) or year
+            description = m.get("overview") or description
+            poster = img(m.get("poster_path")) or poster
+            tmdb_id, rating = m.get("id"), round(m.get("vote_average", 0) or 0, 1) or None
+    title = title or f"Фильм {code}"
+    status = await db.upsert_channel_film(code, title, year, description, poster, message_id, tmdb_id, rating)
     if notify:
         icon = "✅ Добавлен" if status == "new" else "♻️ Обновлён"
         text = (f"{icon} фильм из канала\n\n🎬 <b>{esc(title)}</b> {f'({esc(year)})' if year else ''}\n"
@@ -961,6 +1008,124 @@ async def on_bot_added(event: ChatMemberUpdated):
     for admin in ADMIN_IDS:
         await safe_send(admin, lambda a=admin: bot.send_message(
             a, f"📢 Меня сделали админом канала <b>{esc(event.chat.title)}</b>\nID: <code>{event.chat.id}</code>\n\n{hint}"))
+
+
+# ===== /scan — ОБХОД ВСЕГО КАНАЛА =====
+# Боты не умеют читать историю канала, поэтому бот по очереди пересылает себе каждый пост по номеру,
+# разбирает его и сразу удаляет копию. ~2-3 поста в секунду (лимиты Telegram), прогресс сохраняется.
+scan_state = {"task": None, "stop": False}
+SCAN_DELAY = 0.3
+
+
+async def find_last_message_id() -> int:
+    """Последний номер поста: бот публикует служебное сообщение без звука и тут же удаляет его."""
+    m = await bot.send_message(VIDEO_CHANNEL_ID, "🔄", disable_notification=True)
+    try:
+        await bot.delete_message(VIDEO_CHANNEL_ID, m.message_id)
+    except TelegramBadRequest:
+        pass
+    return m.message_id
+
+
+async def fetch_post(scan_chat, mid):
+    """Пересылает пост в служебный чат и возвращает его (или None, если поста нет)."""
+    for _ in range(5):
+        try:
+            return await bot.forward_message(scan_chat, VIDEO_CHANNEL_ID, mid, disable_notification=True)
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after + 1)
+        except TelegramBadRequest:
+            return None  # удалён / служебный / не пересылается
+    return None
+
+
+async def run_scan(scan_chat, start, end, status: Message, keep_codes: bool):
+    found = added = 0
+    names = []
+    last_edit = mid = start
+    try:
+        for mid in range(start, end + 1):
+            if scan_state["stop"]:
+                break
+            post = await fetch_post(scan_chat, mid)
+            if post:
+                try:
+                    if is_video_post(post):
+                        found += 1
+                        code, title, st = await register_channel_post(post, mid, post.caption or "", notify=False,
+                                                                      new_code=not keep_codes)
+                        if st == "new":
+                            added += 1
+                            names.append(f"<code>{esc(code)}</code> {esc(title[:40])}")
+                except Exception:
+                    log.exception("scan post %s failed", mid)
+                finally:
+                    try:
+                        await bot.delete_message(scan_chat, post.message_id)
+                    except TelegramBadRequest:
+                        pass
+            await asyncio.sleep(SCAN_DELAY)
+            if mid - last_edit >= 25 or mid == end:
+                last_edit = mid
+                await db.kv_set("scan_pos", str(mid + 1))
+                pct = int((mid - start + 1) * 100 / max(end - start + 1, 1))
+                try:
+                    await status.edit_text(f"🔄 Сканирую канал: пост {mid}/{end} ({pct}%)\n"
+                                           f"🎬 Видео найдено: <b>{found}</b> · новых: <b>{added}</b>\n\n"
+                                           f"Остановить: <code>/scan stop</code>")
+                except TelegramBadRequest:
+                    pass
+    finally:
+        stopped = scan_state["stop"]
+        await db.kv_set("scan_pos", str(mid if stopped else end + 1))
+        tail = "\n".join(names[-15:])
+        more = f"\n<i>...и ещё {len(names) - 15}</i>" if len(names) > 15 else ""
+        await safe_send(scan_chat, lambda: bot.send_message(
+            scan_chat, ("⏸ Сканирование остановлено" if stopped else "✅ Сканирование завершено") +
+            f" на посте {mid}.\n🎬 Видео: <b>{found}</b> · добавлено новых: <b>{added}</b>\n\n"
+            f"{tail}{more}\n\nНовые посты потом: <code>/scan continue</code>"))
+        scan_state["task"] = None
+
+
+@dp.message(Command("scan"))
+async def scan_cmd(message: Message, command: CommandObject):
+    if not is_admin(message.from_user.id):
+        return await message.answer(tr(message.from_user.id, "no_access"))
+    if not VIDEO_CHANNEL_ID:
+        return await message.answer("❌ Сначала задай <code>VIDEO_CHANNEL_ID</code> в Railway → Variables "
+                                    "(добавь бота админом в канал — он пришлёт ID).")
+    args = (command.args or "").split()
+    running = scan_state["task"] is not None and not scan_state["task"].done()
+    if args[:1] == ["stop"]:
+        scan_state["stop"] = True
+        return await message.answer("⏸ Останавливаю..." if running else "Сканирование не запущено.")
+    if args[:1] == ["status"]:
+        return await message.answer(f"{'🔄 Идёт' if running else '💤 Не запущено'}. "
+                                    f"Следующий пост: {await db.kv_get('scan_pos') or 1}")
+    if running:
+        return await message.answer("🔄 Сканирование уже идёт. <code>/scan stop</code> — остановить.")
+
+    keep_codes = "keep" in args
+    nums = [int(a) for a in args if a.isdigit()]
+    try:
+        last = await find_last_message_id() - 1
+    except Exception as e:
+        return await message.answer(f"❌ Не могу писать в канал — дай боту право публиковать сообщения.\n{esc(e)}")
+    if args[:1] == ["continue"]:
+        start, end = int(await db.kv_get("scan_pos") or 1), last
+    else:
+        start = nums[0] if nums else 1
+        end = min(nums[1], last) if len(nums) > 1 else last
+    if start > end:
+        return await message.answer("✅ Новых постов для сканирования нет.")
+    scan_chat = SCAN_CHAT_ID or message.chat.id
+    minutes = max(1, round((end - start + 1) * 0.7 / 60))
+    status = await message.answer(
+        f"🔄 Начинаю сканировать посты {start}–{end} (~{minutes} мин).\n"
+        f"Коды: {'из подписей постов' if keep_codes else 'новые свободные'} · "
+        "названия, постеры и описания — из TMDb.\n\nМожно закрыть чат — пришлю итог.")
+    scan_state["stop"] = False
+    scan_state["task"] = asyncio.create_task(run_scan(scan_chat, start, end, status, keep_codes))
 
 
 @dp.message(F.forward_origin, F.func(is_video_post))
@@ -1264,7 +1429,8 @@ async def getvideo_callback(callback: CallbackQuery):
     if not await require_sub(callback.message, uid, f"open:custom:{code}"):
         return await callback.answer()
     try:
-        await bot.copy_message(uid, VIDEO_CHANNEL_ID, film["channel_message_id"], protect_content=PROTECT_CONTENT)
+        await bot.copy_message(uid, VIDEO_CHANNEL_ID, film["channel_message_id"], protect_content=PROTECT_CONTENT,
+                               caption=film_caption(uid, film) if OWN_CAPTION else None)
         await callback.answer()
     except Exception as e:
         log.warning("getvideo %s failed: %s", code, e)
