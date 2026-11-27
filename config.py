@@ -20,6 +20,11 @@ AI_MODEL = os.getenv("AI_MODEL", "claude-haiku-4-5-20251001")
 # 1 = видео из бота нельзя переслать/сохранить (защита контента)
 PROTECT_CONTENT = os.getenv("PROTECT_CONTENT", "0") == "1"
 
+# Premium за Telegram Stars (цены в звёздах)
+PREMIUM_MONTH_STARS = int(os.getenv("PREMIUM_MONTH_STARS", "50"))   # подписка 30 дней, автопродление
+PREMIUM_WEEK_STARS = int(os.getenv("PREMIUM_WEEK_STARS", "15"))     # разово на 7 дней
+FREE_AI_PER_DAY = int(os.getenv("FREE_AI_PER_DAY", "20"))           # AI-запросов в день без Premium (0 = без лимита)
+
 TMDB_URL = "https://api.themoviedb.org/3"
 TMDB_IMG = "https://image.tmdb.org/t/p/w500"
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://voluble-croissant-d09014.netlify.app")

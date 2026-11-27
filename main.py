@@ -13,7 +13,7 @@ import html
 import logging
 import random
 import urllib.parse
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from aiogram import BaseMiddleware, Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -21,13 +21,15 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, Teleg
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (BotCommand, CallbackQuery, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup,
                            InlineQuery, InlineQueryResultArticle, InputMediaPhoto, InputTextMessageContent,
-                           KeyboardButton, LinkPreviewOptions, Message, ReplyKeyboardMarkup, WebAppInfo)
+                           KeyboardButton, LabeledPrice, LinkPreviewOptions, Message, PreCheckoutQuery,
+                           ReplyKeyboardMarkup, WebAppInfo)
 from cachetools import TTLCache
 
 import db
 import services as api
-from config import (ADMIN_IDS, BOT_TOKEN, BOT_USERNAME, MINI_APP_URL, MORNING_FROM_HOUR, MORNING_TO_HOUR,
-                    PROTECT_CONTENT, TMDB_IMG, VIDEO_CHANNEL_ID, now_local)
+from config import (ADMIN_IDS, BOT_TOKEN, BOT_USERNAME, FREE_AI_PER_DAY, MINI_APP_URL, MORNING_FROM_HOUR,
+                    MORNING_TO_HOUR, PREMIUM_MONTH_STARS, PREMIUM_WEEK_STARS, PROTECT_CONTENT, TMDB_IMG, TZ,
+                    VIDEO_CHANNEL_ID, now_local)
 from texts import TEXTS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -79,7 +81,8 @@ def get_menu(user_id):
             [KeyboardButton(text=tx["top"]), KeyboardButton(text=tx["new"]), KeyboardButton(text=tx["upcoming"])],
             [KeyboardButton(text=tx["uzbek"]), KeyboardButton(text=tx["tv_shows"]), KeyboardButton(text=tx["favorites"])],
             [KeyboardButton(text=tx["quiz"]), KeyboardButton(text=tx["recommend"]), KeyboardButton(text=tx["invite"])],
-            [KeyboardButton(text="🎬 FILMIX App", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [KeyboardButton(text="🎬 FILMIX App", web_app=WebAppInfo(url=MINI_APP_URL)),
+             KeyboardButton(text=tx["premium"])],
         ],
         resize_keyboard=True,
         is_persistent=True,
@@ -89,7 +92,7 @@ def get_menu(user_id):
 # Кнопка меню на любом языке → действие
 MENU_ACTIONS = {}
 for _lang in TEXTS.values():
-    for _key in ("top", "new", "upcoming", "uzbek", "tv_shows", "favorites", "quiz", "recommend", "invite"):
+    for _key in ("top", "new", "upcoming", "uzbek", "tv_shows", "favorites", "quiz", "recommend", "invite", "premium"):
         MENU_ACTIONS[_lang[_key]] = _key
 
 LANG_KB = InlineKeyboardMarkup(inline_keyboard=[[
@@ -107,7 +110,7 @@ class ThrottleMiddleware(BaseMiddleware):
 
     async def __call__(self, handler, event: Message, data):
         uid = event.from_user.id if event.from_user else None
-        if uid and not is_admin(uid):
+        if uid and not is_admin(uid) and not event.successful_payment:
             if uid in self.seen:
                 return None
             self.seen[uid] = True
@@ -142,7 +145,7 @@ async def get_channels_cached():
 
 async def check_sub(user_id):
     """Список каналов, на которые пользователь НЕ подписан (пусто = всё ок)."""
-    if is_admin(user_id) or user_id in sub_ok_cache or await db.has_bonus(user_id):
+    if is_admin(user_id) or user_id in sub_ok_cache or await db.has_bonus(user_id) or await db.has_premium(user_id):
         return []
     not_subbed = []
     for ch in await get_channels_cached():
@@ -161,6 +164,7 @@ async def check_sub(user_id):
 def sub_keyboard(user_id, not_subbed, callback_data):
     rows = [[InlineKeyboardButton(text=f"📢 {ch['name']}", url=ch["url"])] for ch in not_subbed]
     rows.append([InlineKeyboardButton(text=tr(user_id, "check_sub"), callback_data=callback_data)])
+    rows.append([InlineKeyboardButton(text=tr(user_id, "skip_sub_premium"), callback_data="premium")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -508,8 +512,11 @@ async def admin_cmd(message: Message):
         await message.answer(tr(message.from_user.id, "no_access"))
         return
     total, today, requests, referrals, blocked = await db.get_stats()
+    prem_active, stars_total, stars_month = await db.premium_stats()
     await message.answer(
         "👑 <b>Админ панель FILMIX</b>\n\n"
+        f"⭐ Premium активных: <b>{prem_active}</b>\n"
+        f"💰 Звёзд за 30 дней: <b>{stars_month}</b> · всего: <b>{stars_total}</b>\n\n"
         f"👥 Пользователей: <b>{total}</b>\n🔥 Сегодня: <b>{today}</b>\n"
         f"🔍 Запросов: <b>{requests}</b>\n🔗 Рефералов: <b>{referrals}</b>\n"
         f"🚫 Заблокировали бота: <b>{blocked}</b>\n\n"
@@ -523,7 +530,10 @@ async def admin_cmd(message: Message):
         "📋 <code>/myfilms</code> — список фильмов\n\n"
         "📋 <code>/channels</code> — каналы\n"
         "➕ <code>/addchannel @ch Название</code>\n"
-        "➖ <code>/removechannel @ch</code>")
+        "➖ <code>/removechannel @ch</code>\n\n"
+        "⭐ <b>Premium:</b>\n"
+        "🎁 <code>/givepremium USER_ID ДНЕЙ</code> — выдать вручную\n"
+        "↩️ <code>/refund CHARGE_ID</code> — вернуть звёзды (ID приходит в уведомлении об оплате)")
 
 
 @dp.message(Command("channels"))
@@ -704,6 +714,146 @@ async def broadcast_cmd(message: Message, command: CommandObject):
     asyncio.create_task(run())  # рассылка идёт в фоне, бот продолжает отвечать
 
 
+# ===== PREMIUM ЗА TELEGRAM STARS =====
+PLANS = {"premium_30": (30, PREMIUM_MONTH_STARS, "invoice_month_title"),
+         "premium_7": (7, PREMIUM_WEEK_STARS, "invoice_week_title")}
+SUBSCRIPTION_PERIOD = 30 * 24 * 60 * 60  # Telegram допускает только 30 дней
+invoice_links = TTLCache(maxsize=10, ttl=12 * 60 * 60)
+
+
+def fmt_date(d) -> str:
+    return d.strftime("%d.%m.%Y %H:%M") if d else "—"
+
+
+async def month_invoice_link(uid) -> str:
+    """Ссылка на подписку с автопродлением (одна на язык, кэшируется)."""
+    lang = db.get_lang(uid)
+    if lang not in invoice_links:
+        invoice_links[lang] = await bot.create_invoice_link(
+            title=html.unescape(tr(uid, "invoice_month_title")), description=html.unescape(tr(uid, "invoice_desc")),
+            payload="premium_30", currency="XTR",
+            prices=[LabeledPrice(label="Premium 30", amount=PREMIUM_MONTH_STARS)],
+            subscription_period=SUBSCRIPTION_PERIOD)
+    return invoice_links[lang]
+
+
+async def show_premium(message: Message, uid):
+    until = await db.get_premium_until(uid)
+    active = until and until > now_local()
+    text = tr(uid, "premium_active", fmt_date(until)) if active else tr(uid, "premium_info")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=tr(uid, "buy_month", PREMIUM_MONTH_STARS), url=await month_invoice_link(uid))],
+        [InlineKeyboardButton(text=tr(uid, "buy_week", PREMIUM_WEEK_STARS), callback_data="buy:premium_7")],
+    ])
+    await message.answer(text, reply_markup=kb)
+
+
+async def ai_allowed(message: Message, uid) -> bool:
+    if FREE_AI_PER_DAY <= 0 or is_admin(uid) or await db.has_premium(uid):
+        return True
+    if await db.ai_use(uid) <= FREE_AI_PER_DAY:
+        return True
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=tr(uid, "premium"), callback_data="premium")]])
+    await message.answer(tr(uid, "ai_limit", FREE_AI_PER_DAY), reply_markup=kb)
+    return False
+
+
+@dp.message(Command("premium"))
+async def premium_cmd(message: Message):
+    await show_premium(message, message.from_user.id)
+
+
+@dp.callback_query(F.data == "premium")
+async def premium_callback(callback: CallbackQuery):
+    await callback.answer()
+    await show_premium(callback.message, callback.from_user.id)
+
+
+@dp.callback_query(F.data.startswith("buy:"))
+async def buy_callback(callback: CallbackQuery):
+    uid = callback.from_user.id
+    payload = callback.data.split(":", 1)[1]
+    if payload not in PLANS:
+        return await callback.answer()
+    days, amount, title_key = PLANS[payload]
+    await callback.answer()
+    await bot.send_invoice(uid, title=html.unescape(tr(uid, title_key)),
+                           description=html.unescape(tr(uid, "invoice_desc")), payload=payload, currency="XTR",
+                           prices=[LabeledPrice(label=f"Premium {days}", amount=amount)])
+
+
+@dp.pre_checkout_query()
+async def pre_checkout(query: PreCheckoutQuery):
+    await query.answer(ok=query.invoice_payload in PLANS and query.currency == "XTR")
+
+
+@dp.message(F.successful_payment)
+async def successful_payment(message: Message):
+    sp = message.successful_payment
+    uid = message.from_user.id
+    # Дату окончания считаем ДО записи платежа, чтобы ошибка не оставила оплату без Premium
+    exp = sp.subscription_expiration_date
+    if isinstance(exp, (int, float)):
+        exp = datetime.fromtimestamp(exp, TZ)
+    exact_until = exp.astimezone(TZ).replace(tzinfo=None) if exp else None
+    if not await db.record_payment(uid, sp.telegram_payment_charge_id, sp.invoice_payload,
+                                   sp.total_amount, bool(sp.is_recurring)):
+        return  # дубль — уже начислено
+    if exact_until:
+        until = await db.extend_premium(uid, until=exact_until)
+    else:
+        until = await db.extend_premium(uid, days=PLANS.get(sp.invoice_payload, (30,))[0])
+    sub_ok_cache.pop(uid, None)
+    renewal = sp.is_recurring and not sp.is_first_recurring
+    await message.answer(tr(uid, "premium_renewed" if renewal else "premium_thanks", fmt_date(until)))
+    for admin in ADMIN_IDS:
+        await safe_send(admin, lambda a=admin: bot.send_message(
+            a, f"💰 <b>+{sp.total_amount} ⭐</b> от <code>{uid}</code> "
+               f"({esc(message.from_user.full_name)})\n{esc(sp.invoice_payload)}"
+               f"{' · продление' if renewal else ''}\n"
+               f"До: {fmt_date(until)}\nCHARGE_ID: <code>{esc(sp.telegram_payment_charge_id)}</code>"))
+
+
+@dp.message(Command("paysupport"))
+async def paysupport_cmd(message: Message):
+    await message.answer(tr(message.from_user.id, "paysupport", ADMIN_IDS[0]))
+
+
+@dp.message(Command("refund"))
+async def refund_cmd(message: Message, command: CommandObject):
+    if not is_admin(message.from_user.id):
+        return await message.answer(tr(message.from_user.id, "no_access"))
+    charge_id = (command.args or "").strip()
+    pay = await db.get_payment(charge_id) if charge_id else None
+    if not pay:
+        return await message.answer("❌ Используй: <code>/refund CHARGE_ID</code> (платёж не найден)")
+    if pay["refunded"]:
+        return await message.answer("ℹ️ Этот платёж уже возвращён.")
+    try:
+        await bot.refund_star_payment(user_id=pay["user_id"], telegram_payment_charge_id=charge_id)
+    except TelegramBadRequest as e:
+        return await message.answer(f"❌ Telegram отказал: {esc(e.message)}")
+    await db.mark_refunded(charge_id, pay["user_id"])
+    sub_ok_cache.pop(pay["user_id"], None)
+    await message.answer(f"✅ Возвращено {pay['amount']} ⭐ пользователю <code>{pay['user_id']}</code>, Premium снят.")
+
+
+@dp.message(Command("givepremium"))
+async def givepremium_cmd(message: Message, command: CommandObject):
+    if not is_admin(message.from_user.id):
+        return await message.answer(tr(message.from_user.id, "no_access"))
+    args = (command.args or "").split()
+    if len(args) != 2 or not all(a.isdigit() for a in args):
+        return await message.answer("❌ Используй: <code>/givepremium USER_ID ДНЕЙ</code>")
+    target, days = int(args[0]), int(args[1])
+    if not await db.user_exists(target):
+        return await message.answer("❌ Такого пользователя нет в базе.")
+    until = await db.extend_premium(target, days=days)
+    await db.load_lang(target)
+    await safe_send(target, lambda: bot.send_message(target, tr(target, "premium_thanks", fmt_date(until))))
+    await message.answer(f"✅ Premium для <code>{target}</code> до {fmt_date(until)}")
+
+
 @dp.message(F.video, F.forward_origin)
 async def forwarded_video_handler(message: Message):
     if not is_admin(message.from_user.id):
@@ -753,6 +903,8 @@ async def menu_action(message: Message, uid, action):
         await start_quiz(message, uid)
     elif action == "recommend":
         await message.answer(tr(uid, "recommend_prompt"))
+    elif action == "premium":
+        await show_premium(message, uid)
     elif action == "invite":
         link = f"https://t.me/{BOT_USERNAME}?start=r{uid}"
         await message.answer(tr(uid, "invite_text", link, await db.get_referral_count(uid)))
@@ -825,6 +977,10 @@ async def handle(message: Message):
 
     if text.isdigit():
         return await show_film(message, uid, int(text))
+
+    is_ai = any(kw in text.lower() for kw in RECOMMEND_KW) or len(text) > 20
+    if is_ai and not await ai_allowed(message, uid):
+        return
 
     if any(kw in text.lower() for kw in RECOMMEND_KW):
         thinking = await message.answer(tr(uid, "ai_recommending"))
@@ -1105,7 +1261,9 @@ async def main():
     await bot.set_my_commands([
         BotCommand(command="start", description="Запуск / Boshlash"),
         BotCommand(command="lang", description="Язык / Til"),
+        BotCommand(command="premium", description="⭐ Premium"),
         BotCommand(command="stats", description="Статистика / Statistika"),
+        BotCommand(command="paysupport", description="Оплата / To'lov"),
     ])
     morning = asyncio.create_task(morning_broadcast())
     try:

@@ -42,6 +42,13 @@ async def init_db():
             channel_message_id INTEGER)""")
         await c.execute("ALTER TABLE custom_films ADD COLUMN IF NOT EXISTS channel_message_id INTEGER")
         await c.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
+        await c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP")
+        await c.execute("""CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY, user_id BIGINT, charge_id TEXT UNIQUE, payload TEXT,
+            amount INTEGER, is_recurring BOOLEAN DEFAULT FALSE, refunded BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP)""")
+        await c.execute("""CREATE TABLE IF NOT EXISTS ai_usage (
+            user_id BIGINT, day DATE, cnt INTEGER DEFAULT 0, PRIMARY KEY (user_id, day))""")
         # Индексы — ускоряют избранное и рефералов
         await c.execute("CREATE INDEX IF NOT EXISTS idx_fav_user_movie ON favorites (user_id, movie_id)")
         await c.execute("CREATE INDEX IF NOT EXISTS idx_ref_inviter ON referrals (inviter_id)")
@@ -249,3 +256,60 @@ async def kv_get(key: str):
 async def kv_set(key: str, value: str):
     await pool.execute("INSERT INTO kv (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value=$2",
                        key, value)
+
+
+# ===== PREMIUM (Telegram Stars) =====
+async def get_premium_until(user_id: int):
+    return await pool.fetchval("SELECT premium_until FROM users WHERE user_id=$1", user_id)
+
+
+async def has_premium(user_id: int) -> bool:
+    until = await get_premium_until(user_id)
+    return bool(until and until > now_local())
+
+
+async def extend_premium(user_id: int, days: int = 0, until=None):
+    """Продлевает Premium на days дней (от текущей даты окончания, если она в будущем)
+    или ставит точную дату until (так приходит автопродление подписки)."""
+    if until is None:
+        current = await get_premium_until(user_id)
+        base = current if current and current > now_local() else now_local()
+        until = base + timedelta(days=days)
+    await pool.execute("UPDATE users SET premium_until=$1 WHERE user_id=$2", until, user_id)
+    return until
+
+
+async def record_payment(user_id, charge_id, payload, amount, is_recurring) -> bool:
+    """False — этот платёж уже был записан (защита от двойного начисления)."""
+    res = await pool.execute(
+        """INSERT INTO payments (user_id, charge_id, payload, amount, is_recurring, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (charge_id) DO NOTHING""",
+        user_id, charge_id, payload, amount, is_recurring, now_local())
+    return res.endswith(" 1")
+
+
+async def get_payment(charge_id: str):
+    row = await pool.fetchrow("SELECT * FROM payments WHERE charge_id=$1", charge_id)
+    return dict(row) if row else None
+
+
+async def mark_refunded(charge_id: str, user_id: int):
+    await pool.execute("UPDATE payments SET refunded=TRUE WHERE charge_id=$1", charge_id)
+    await pool.execute("UPDATE users SET premium_until=$1 WHERE user_id=$2", now_local(), user_id)
+
+
+async def premium_stats():
+    async with pool.acquire() as c:
+        active = await c.fetchval("SELECT COUNT(*) FROM users WHERE premium_until > $1", now_local())
+        stars = await c.fetchval("SELECT COALESCE(SUM(amount),0) FROM payments WHERE NOT refunded")
+        month = await c.fetchval("SELECT COALESCE(SUM(amount),0) FROM payments WHERE NOT refunded AND created_at > $1",
+                                 now_local() - timedelta(days=30))
+    return active, stars, month
+
+
+async def ai_use(user_id: int) -> int:
+    """+1 AI-запрос за сегодня, возвращает сколько уже использовано."""
+    return await pool.fetchval(
+        """INSERT INTO ai_usage (user_id, day, cnt) VALUES ($1, $2, 1)
+           ON CONFLICT (user_id, day) DO UPDATE SET cnt = ai_usage.cnt + 1 RETURNING cnt""",
+        user_id, now_local().date())
